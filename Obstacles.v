@@ -140,7 +140,7 @@ module Upcount (Clock, Resetn, Q);
 endmodule
 
 
-module object#(parameter nX=10, parameter nY=9, parameter width=60, parameter height=200, parameter KK=24)
+module object#(parameter nX=10, parameter nY=9, parameter width=60, parameter height=200, parameter KK=19)
                 (Xini, Yini, Resetn, Clock, grant, req, VGA_x, VGA_y, VGA_write, erase_o);        //will be called twice (for bottom and top pillar)
 
 
