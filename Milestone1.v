@@ -31,10 +31,6 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     parameter Xscreen = 640;
     parameter Yscreen = 480;
 
-    parameter Xdim = 60, Ydim = 200; // object's width and height
-
-    parameter KK = 24; // controls animation speed
-
     // state codes for FSM that choses which object to draw at a given time
     parameter A = 2'b00, B = 2'b01, C = 2'b10, D = 2'b11;
     
@@ -143,7 +139,7 @@ module Upcount (Clock, Resetn, Q);
 endmodule
 
 
-module object#(parameter nX=10, parameter nY=9, parameter XDIM=60, parameter YDIM=200, parameter KK=24)
+module object#(parameter nX=10, parameter nY=9, parameter width=60, parameter height=200, parameter KK=24)
                 (Xini, Yini, Resetn, Clock, grant, req, VGA_x, VGA_y, VGA_write, erase_o);        //will be called twice (for bottom and top pillar)
 
 
@@ -200,16 +196,16 @@ module object#(parameter nX=10, parameter nY=9, parameter XDIM=60, parameter YDI
 always @(*) begin
     case (y_Q)
         A:  Y_D = B;                               // A: init once, then start initial draw
-        B:  Y_D = (XC != XDIM-1) ? B : C;          // B: draw row across width
-        C:  Y_D = (YC != YDIM-1) ? B : D;          // C: end row, advance YC until full height done
+		B:  Y_D = (XC != width-1) ? B : C;         // B: draw row across width
+		C:  Y_D = (YC != height-1) ? B : D;        // C: end row, advance YC until full height done
         D:  Y_D = (!sync) ? D : E;                 // D: wait for constant-speed tick
-        E:  Y_D = (!grant)  ? E : F;                 // E: request bus; wait for grant
-        F:  Y_D = (XC != XDIM-1) ? F : G;          // F: erase row across width
-        G:  Y_D = (YC != YDIM-1) ? F : H;          // G: finish erase row, go to next erase row
+        E:  Y_D = (!grant)  ? E : F;               // E: request bus; wait for grant
+		F:  Y_D = (XC != width-1) ? F : G;         // F: erase row across width
+		G:  Y_D = (YC != height-1) ? F : H;        // G: finish erase row, go to next erase row
         H:  Y_D = I;                               // H: move X left or wrap
         I:  Y_D = J;                               // I: bookkeeping (keep req high)
-        J:  Y_D = (XC != XDIM-1) ? J : K;          // J: draw row at new X
-        K:  Y_D = (YC != YDIM-1) ? J : L;          // K: finish draw row, go to next draw row
+		J:  Y_D = (XC != width-1) ? J : K;         // J: draw row at new X
+		K:  Y_D = (YC != height-1) ? J : L;        // K: finish draw row, go to next draw row
         L:  Y_D = D;                               // L: release request, wait for next tick
         default: Y_D = A;
     endcase
