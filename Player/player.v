@@ -31,6 +31,44 @@ module regn(R, Resetn, E, Clock, Q);
             Q <= R;
 endmodule
 
+module hex7seg (hex, display);
+    input wire [3:0] hex;
+    output reg [6:0] display;
+
+    /*
+     *       0  
+     *      ---  
+     *     |   |
+     *    5|   |1
+     *     | 6 |
+     *      ---  
+     *     |   |
+     *    4|   |2
+     *     |   |
+     *      ---  
+     *       3  
+     */
+    always @ (hex)
+        case (hex)
+            4'h0: display = 7'b1000000;
+            4'h1: display = 7'b1111001;
+            4'h2: display = 7'b0100100;
+            4'h3: display = 7'b0110000;
+            4'h4: display = 7'b0011001;
+            4'h5: display = 7'b0010010;
+            4'h6: display = 7'b0000010;
+            4'h7: display = 7'b1111000;
+            4'h8: display = 7'b0000000;
+            4'h9: display = 7'b0011000;
+            4'hA: display = 7'b0001000;
+            4'hB: display = 7'b0000011;
+            4'hC: display = 7'b1000110;
+            4'hD: display = 7'b0100001;
+            4'hE: display = 7'b0000110;
+            4'hF: display = 7'b0001110;
+        endcase
+endmodule
+
 //take keyboard input and display it on hex display; set obj_move to 1 if space is pressed
 //also set obj_move to 1 if KEY[1] is pressed
 module user_input (CLOCK_50, KEY, PS2_CLK, PS2_DAT, HEX5, HEX4, HEX3, HEX2, HEX1, HEX0, obj_move, Resetn);
@@ -107,18 +145,3 @@ module user_input (CLOCK_50, KEY, PS2_CLK, PS2_DAT, HEX5, HEX4, HEX3, HEX2, HEX1
     
 endmodule
 
-//implement a moving object that can be moved up with user input and falls continuously due to gravity
-module player (Resetn, Clock, go, ps2_rec, dir, VGA_x, VGA_y, VGA_color, VGA_write, done);
-    // specify the number of bits needed for an X (column) pixel coordinate on the VGA display
-    parameter nX = 10;
-    // specify the number of bits needed for a Y (row) pixel coordinate on the VGA display
-    parameter nY = 9;
-    // by default, use offsets to place the object on the left of the VGA display
-    parameter XOFFSET = 160;
-    parameter YOFFSET = 240;
-    parameter xOBJ = 4, yOBJ = 4;   // object size is 2^xOBJ x 2^yOBJ
-    parameter BOX_SIZE_X = 1 << xOBJ;
-    parameter BOX_SIZE_Y = 1 << yOBJ;
-    parameter Mn = xOBJ + yOBJ; // address lines needed for the object memory
-    parameter INIT_FILE = "./MIF/object_mem_16_16_9.mif"
-endmodule
