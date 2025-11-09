@@ -14,9 +14,9 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 	output wire VGA_SYNC_N;
 	output wire VGA_CLK;	
 
-    // number of bits needed for an X (column) pixel coordinate on the VGA display
+	// need 10 bits for a X coordinate (640 pixels)
     parameter nX = 10;
-    // number of bits needed for a Y (row) pixel coordinate on the VGA display
+	// need 10 bits for a Y coordinate (4800 pixels)
     parameter nY = 9;
 
     wire Resetn = KEY[0];
