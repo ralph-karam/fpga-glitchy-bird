@@ -75,8 +75,8 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
             y_Q <= Y_D;
 
 
-    object O1 (10'd620, 9'd0,   Resetn, CLOCK_50, topGrant, topReq, topX, topY, topWrite, topErase);
-    object O2 (10'd620, 9'd280, Resetn, CLOCK_50, btmGrant, btmReq, btmX, btmY, btmWrite, btmErase);
+    object topObstacle(10'd620, 9'd0,   Resetn, CLOCK_50, topGrant, topReq, topX, topY, topWrite, topErase);
+    object bottomObstacle(10'd620, 9'd280, Resetn, CLOCK_50, btmGrant, btmReq, btmX, btmY, btmWrite, btmErase);
 
 
     wire [8:0] fixedColor = 9'b000111000;
