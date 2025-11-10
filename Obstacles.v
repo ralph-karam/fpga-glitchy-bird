@@ -1,4 +1,3 @@
-`default_nettype none
 module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 				VGA_HS, VGA_VS, VGA_BLANK_N, VGA_SYNC_N, VGA_CLK);
 
@@ -15,14 +14,14 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 	output wire VGA_SYNC_N;
 	output wire VGA_CLK;	
 
-	// need 10 bits for a X coordinate (640 pixels)
+    // number of bits needed for an X (column) pixel coordinate on the VGA display
     parameter nX = 10;
-	// need 10 bits for a Y coordinate (4800 pixels)
+    // number of bits needed for a Y (row) pixel coordinate on the VGA display
     parameter nY = 9;
 
     wire Resetn = KEY[0];
     wire [nX-1:0] topX, btmX; reg [nX-1:0] MuxX;
-    wire [nY-1:0] topY, btmY; reg [nY-1:0] MuxY;
+    wire [nY-1:0] topY, btmY; reg [nY-1:0]MuxY;
     wire topWrite, btmWrite; reg MuxWrite;
     wire topReq, btmReq; 
     reg  topGrant, btmGrant; 
@@ -31,6 +30,10 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     //screen size
     parameter Xscreen = 640;
     parameter Yscreen = 480;
+
+    parameter Xdim = 60, Ydim = 200; // object's width and height
+
+    parameter KK = 24; // controls animation speed
 
     // state codes for FSM that choses which object to draw at a given time
     parameter A = 2'b00, B = 2'b01, C = 2'b10, D = 2'b11;
@@ -75,8 +78,8 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
             y_Q <= Y_D;
 
 
-	object topObstacle(10'd620, 9'd0, Resetn, CLOCK_50, topGrant, topReq, topX, topY, topWrite);
-	object bottomObstacle(10'd620, 9'd280, Resetn, CLOCK_50, btmGrant, btmReq, btmX, btmWrite);
+    object O1 (10'd620, 9'd0,   Resetn, CLOCK_50, topGrant, topReq, topX, topY, topWrite, topErase);
+    object O2 (10'd620, 9'd280, Resetn, CLOCK_50, btmGrant, btmReq, btmX, btmY, btmWrite, btmErase);
 
 
     wire [8:0] fixedColor = 9'b000111000;
@@ -85,7 +88,9 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     vga_adapter VGA (
 		.resetn(KEY[0]),
 		.clock(CLOCK_50),
-		.color(fixedColor),
+		.color( (y_Q==B) ? (topErase ? 9'b000000000 : 9'b000111000) :
+        (y_Q==C) ? (btmErase ? 9'b000000000 : 9'b000111000) :
+                   9'b000111000 ),
 		.x(MuxX),
 		.y(MuxY),
 		.write(MuxWrite),
@@ -138,11 +143,12 @@ module Upcount (Clock, Resetn, Q);
 endmodule
 
 
-module object#(parameter nX=10, parameter nY=9, parameter width=60, parameter height=200, parameter KK=19)
-                (Xini, Yini, Resetn, Clock, grant, req, VGA_x, VGA_y, VGA_write);        //will be called twice (for bottom and top pillar)
+module object#(parameter nX=10, parameter nY=9, parameter XDIM=60, parameter YDIM=200, parameter KK=24)
+                (Xini, Yini, Resetn, Clock, grant, req, VGA_x, VGA_y, VGA_write, erase_o);        //will be called twice (for bottom and top pillar)
 
 
-
+    output wire erase_o;
+    assign erase_o = erase;
     input  wire [nX-1:0] Xini;
     input  wire [nY-1:0] Yini;
     input wire Resetn, Clock;
@@ -159,6 +165,8 @@ module object#(parameter nX=10, parameter nY=9, parameter width=60, parameter he
     wire [nX-1:0] X, XC;    // used to traverse the object's width
 	wire [nY-1:0] Y, YC;    // used to traverse the object's height
     assign Y = Yini;
+
+    wire topErase, btmErase;
 
     // divider for constant speed
     wire [KK-1:0] slow;
@@ -191,17 +199,17 @@ module object#(parameter nX=10, parameter nY=9, parameter width=60, parameter he
 
 always @(*) begin
     case (y_Q)
-        A:  Y_D = B;                               // A: initial state, initializes counters 
-		B:  Y_D = (XC != width-1) ? B : C;         // B: draw row across width
-		C:  Y_D = (YC != height-1) ? B : D;        // C: end row, advance YC until full height done
+        A:  Y_D = B;                               // A: init once, then start initial draw
+        B:  Y_D = (XC != XDIM-1) ? B : C;          // B: draw row across width
+        C:  Y_D = (YC != YDIM-1) ? B : D;          // C: end row, advance YC until full height done
         D:  Y_D = (!sync) ? D : E;                 // D: wait for constant-speed tick
-        E:  Y_D = (!grant)  ? E : F;               // E: request bus; wait for grant
-		F:  Y_D = (XC != width-1) ? F : G;         // F: erase row across width
-		G:  Y_D = (YC != height-1) ? F : H;        // G: finish erase row, go to next erase row
+        E:  Y_D = (!grant)  ? E : F;                 // E: request bus; wait for grant
+        F:  Y_D = (XC != XDIM-1) ? F : G;          // F: erase row across width
+        G:  Y_D = (YC != YDIM-1) ? F : H;          // G: finish erase row, go to next erase row
         H:  Y_D = I;                               // H: move X left or wrap
         I:  Y_D = J;                               // I: bookkeeping (keep req high)
-		J:  Y_D = (XC != width-1) ? J : K;         // J: draw row at new X
-		K:  Y_D = (YC != height-1) ? J : L;        // K: finish draw row, go to next draw row
+        J:  Y_D = (XC != XDIM-1) ? J : K;          // J: draw row at new X
+        K:  Y_D = (YC != YDIM-1) ? J : L;          // K: finish draw row, go to next draw row
         L:  Y_D = D;                               // L: release request, wait for next tick
         default: Y_D = A;
     endcase
