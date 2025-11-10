@@ -40,10 +40,6 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     wire Resetn, faster, slower, set_color;
 
     assign Resetn = KEY[0];
-    sync S1 (~KEY[1], Resetn, CLOCK_50, set_color);
-    sync S2 (~KEY[2], Resetn, CLOCK_50, faster);
-    sync S3 (~KEY[3], Resetn, CLOCK_50, slower);
-
 
     always @ (*)
         case (y_Q)
@@ -148,51 +144,6 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 
 endmodule
 
-// syncronizer, implemented as two FFs in series
-module sync(D, Resetn, Clock, Q);
-    input wire D;
-    input wire Resetn, Clock;
-    output reg Q;
-
-    reg Qi; // internal node
-
-    always @(posedge Clock)
-        if (Resetn == 0) begin
-            Qi <= 1'b0;
-            Q <= 1'b0;
-        end
-        else begin
-            Qi <= D;
-            Q <= Qi;
-        end
-endmodule
-
-// n-bit register with sync reset and enable
-module regn(R, Resetn, E, Clock, Q);
-    parameter n = 8;
-    input wire [n-1:0] R;
-    input wire Resetn, E, Clock;
-    output reg [n-1:0] Q;
-
-    always @(posedge Clock)
-        if (Resetn == 0)
-            Q <= 'b0;
-        else if (E)
-            Q <= R;
-endmodule
-
-// toggle flip-flop with reset
-module ToggleFF(T, Resetn, Clock, Q);
-    input wire T, Resetn, Clock;
-    output reg Q;
-
-    always @(posedge Clock)
-        if (!Resetn)
-            Q <= 1'b0;
-        else if (T)
-            Q <= ~Q;
-endmodule
-
 // up/down counter with reset, enable, and load controls
 module UpDn_count (R, Clock, Resetn, E, L, UpDn, Q);
     parameter n = 10;
@@ -294,8 +245,6 @@ module object (Resetn, Clock, gnt, sel, set_color, new_color, faster, slower, re
 
     // set default color to white (1...11)
     assign the_color = color == 9'b0 ? 9'b111111111 : new_color;
-    regn UC (the_color, Resetn, (sel && set_color) | (color == 9'b0), Clock, color); 
-        defparam UC.n = 9;
 
     UpDn_count U3 ({nX{1'd0}}, Clock, Resetn, Exc, Lxc, 1'b1, XC); // object column counter
         defparam U3.n = nX;
@@ -308,7 +257,6 @@ module object (Resetn, Clock, gnt, sel, set_color, new_color, faster, slower, re
  
     assign sync = ((slow | (mask << KK-MM)) == {KK{1'b1}});
 
-   // ToggleFF U7 (Tdir, Resetn, Clock, Ydir);        // used to reverse directions
 
     assign VGA_x = X + XC;                          // pixel x coordinate
     assign VGA_y = Y + YC;                          // pixel y coordinate
@@ -442,5 +390,4 @@ endmodule
 
 //This is animation demo with the following changes: XDIM YDIM XINI YINI
 // Updwn counters function declarations Ey becomes 0 and reg Ex appears. Ydir becomes 1 and Xdir appears
-// ToggleFF toggles Xdir instead of Ydir
 // State I becomes // move the object I:  begin req = 1'b1; Ex = 1'b1; Lx = (X == 'd0); end
