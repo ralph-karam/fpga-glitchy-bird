@@ -95,7 +95,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
                O1_x, O1_y, O1_color, O1_write);
         defparam O1.nX = nX;
         defparam O1.nY = nY;
-		defparam O1.color = 9'b111_000_000;
+		defparam O1.COLOR = 9'b111_000_000;
 
     // instantiate object 2
 	object O2 (Resetn, CLOCK_50, gnt2, faster, slower, req2, 
@@ -104,7 +104,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
         defparam O2.nY = nY;
         defparam O2.X_INIT = 10'd620; //spawn at right edge 
         defparam O2.Y_INIT = 9'd0;
-		defparam O1.color = 9'b000_111_000;
+		defparam O2.COLOR = 9'b000_111_000;
 		  
 		  
 		  // instantiate object 3
@@ -113,7 +113,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
         defparam O3.nX = nX;
         defparam O3.nY = nY;
         defparam O3.X_INIT = 10'd420; //spawn at right edge 
-		defparam O1.color = 9'b000_000_111;
+		defparam O3.COLOR = 9'b000_000_111;
 		  
 		  
 		      // instantiate object 4
@@ -123,7 +123,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
         defparam O4.nY = nY;
         defparam O4.X_INIT = 10'd420; //spawn at right edge 
         defparam O4.Y_INIT = 9'd0;
-		defparam O1.color = 9'b000_000_000
+		defparam O4.COLOR = 9'b000_000_000
 		  
 	
 
@@ -216,7 +216,6 @@ module object (Resetn, Clock, gnt, faster, slower, req,
 
     input wire Resetn, Clock;
     input wire gnt;  // set to 1 when this object is selected for VGA display
-    input wire sel;  // when 1, this object's color and speed can be changed
     input wire faster, slower;   // used to increase/decrease the object's speed
     output reg req; // object sets this request to 1 when it wants to be displayed
 	output wire [nX-1:0] VGA_x;  // pixel x coordinate output
@@ -360,14 +359,14 @@ module object (Resetn, Clock, gnt, faster, slower, req,
     // FSM for controlling speed of movement
     always @ (*)
         case (ys_Q)
-            As: if (sel & faster) Ys_D = Bs;
-                else if (sel & slower) Ys_D = Ds;
+            As: if (faster) Ys_D = Bs;
+                else if (slower) Ys_D = Ds;
                 else Ys_D = As;
             Bs: Ys_D = Cs;    // one cycle to shift
-            Cs: if (sel & faster) Ys_D = Cs; // wait for KEY release
+            Cs: if (faster) Ys_D = Cs; // wait for KEY release
                 else Ys_D = As;
             Ds: Ys_D = Es;    // one cycle to shift
-            Es: if (sel & slower) Ys_D = Es; // wait for KEY release
+            Es: if (slower) Ys_D = Es; // wait for KEY release
                 else Ys_D = As;
             default: Ys_D = As;
         endcase
