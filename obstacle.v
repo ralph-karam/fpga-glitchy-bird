@@ -10,7 +10,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     parameter nY = 9;
 
     // state codes for FSM that choses which object to draw at a given time
-    parameter A = 2'b000, B = 2'b001, C = 2'b010, D = 2'b011, E = 100;
+    parameter A = 2'b000, B = 2'b001, C = 2'b010, D = 2'b011, E = 3'b100;
 
 	input wire CLOCK_50;	
 	input wire [9:0] SW;
