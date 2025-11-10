@@ -1,6 +1,5 @@
 `default_nettype none
 
-
 module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 				VGA_HS, VGA_VS, VGA_BLANK_N, VGA_SYNC_N, VGA_CLK);
 	
@@ -82,8 +81,8 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     always @ (*)
     begin
         // default assignments
-        gnt_top1 = 1'b0; gnt_btm1 = 1'b0; gnt_top2 = 1'b0; gnt_btm2 = 1'b0; MUX_write = 1'b0;
-        MUX_x = x_top1; MUX_y = y_top1; MUX_color = color_top1;
+        gnt_top1 = 1'b0; gnt_btm1 = 1'b0; gnt_top2 = 1'b0; gnt_btm2 = 1'b0; gnt_top3 = 1'b0; gnt_btm3 = 1'b0;
+		MUX_write = 1'b0; MUX_x = x_top1; MUX_y = y_top1; MUX_color = color_top1;
         case (y_Q)
             A:  ;
             B:  begin gnt_top1 = 1'b1; MUX_write = write_top1; 
@@ -96,9 +95,9 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
             E:  begin gnt_btm2 = 1'b1; MUX_write = write_btm2; 
                       MUX_x = x_btm2; MUX_y = y_btm2; MUX_color = color_btm2; end
 			
-            D:  begin gnt_top3 = 1'b1; MUX_write = write_top3; 
+            F:  begin gnt_top3 = 1'b1; MUX_write = write_top3; 
                       MUX_x = x_top3; MUX_y = y_top3; MUX_color = color_top3; end
-            E:  begin gnt_btm3 = 1'b1; MUX_write = write_btm3; 
+            G:  begin gnt_btm3 = 1'b1; MUX_write = write_btm3; 
                       MUX_x = x_btm3; MUX_y = y_btm3; MUX_color = color_btm3; end
 				
         endcase
@@ -113,52 +112,50 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 
 
 	
-    // instantiate object 1
-	object top1 (Resetn, CLOCK_50, gnt_top1, faster, slower, req_top1, x_top1, y_top1, color_top1, O1_write);
-        defparam O1.nX = nX;
-        defparam O1.nY = nY;
-		defparam O1.COLOR = 9'b000_111_000;
+// top1
+object top1 (Resetn, CLOCK_50, gnt_top1, faster, slower, req_top1, x_top1, y_top1, color_top1, write_top1);
+    defparam top1.nX    = nX;
+    defparam top1.nY    = nY;
+    defparam top1.COLOR = 9'b000_111_000;
 
-    // instantiate object 2
-	object btm1 (Resetn, CLOCK_50, gnt_btm1, faster, slower, req_btm1, x_btm1, y_btm1, color_btm1, O2_write);
-        defparam O2.nX = nX;
-        defparam O2.nY = nY;
-        defparam O2.X_INIT = 10'd620; //spawn at right edge 
-        defparam O2.Y_INIT = 9'd280;
-		defparam O2.COLOR = 9'b000_111_000;
+// btm1
+object btm1 (Resetn, CLOCK_50, gnt_btm1, faster, slower, req_btm1, x_btm1, y_btm1, color_btm1, write_btm1);
+    defparam btm1.nX     = nX;
+    defparam btm1.nY     = nY;
+    defparam btm1.X_INIT = 10'd620;
+    defparam btm1.Y_INIT = 9'd280;
+    defparam btm1.COLOR  = 9'b000_111_000;
 
-	
-	// instantiate object 3
-	object top2 (Resetn, CLOCK_50, gnt_top2, faster, slower, req_top2, x_top2, y_top2, color_top2, O3_write);
-        defparam O3.nX = nX;
-        defparam O3.nY = nY;
-        defparam O3.X_INIT = 10'd420; 
-		defparam O3.COLOR = 9'b000_000_111;
-		  
-	// instantiate object 4
-	object btm2 (Resetn, CLOCK_50, gnt_btm2, faster, slower, req_btm2, x_btm2, y_btm2, color_btm2, O4_write);
-        defparam O4.nX = nX;
-        defparam O4.nY = nY;
-        defparam O4.X_INIT = 10'd420;
-        defparam O4.Y_INIT = 9'd280;
-		defparam O4.COLOR = 9'b000_000_111;
+// top2
+object top2 (Resetn, CLOCK_50, gnt_top2, faster, slower, req_top2, x_top2, y_top2, color_top2, write_top2);
+    defparam top2.nX     = nX;
+    defparam top2.nY     = nY;
+    defparam top2.X_INIT = 10'd420;
+    defparam top2.COLOR  = 9'b000_000_111;
 
-	
-	// instantiate object 5
-	object top3 (Resetn, CLOCK_50, gnt_top3, faster, slower, req_top3, x_top3, y_top3, color_top3, write_top3);
-        defparam O3.nX = nX;
-        defparam O3.nY = nY;
-        defparam O3.X_INIT = 10'd220;
-		defparam O3.COLOR = 9'b111_000_000;
-		  
-	// instantiate object 6
-	object btm3 (Resetn, CLOCK_50, gnt_btm3, faster, slower, req_btm3, x_btm3, y_btm3, color_btm3, write_btm3);
-        defparam O4.nX = nX;
-        defparam O4.nY = nY;
-        defparam O4.X_INIT = 10'd220; 
-        defparam O4.Y_INIT = 9'd280;
-		defparam O4.COLOR = 9'b111_000_000;
-	
+// btm2
+object btm2 (Resetn, CLOCK_50, gnt_btm2, faster, slower, req_btm2, x_btm2, y_btm2, color_btm2, write_btm2);
+    defparam btm2.nX     = nX;
+    defparam btm2.nY     = nY;
+    defparam btm2.X_INIT = 10'd420;
+    defparam btm2.Y_INIT = 9'd0;
+    defparam btm2.COLOR  = 9'b000_000_111;
+
+// top3
+object top3 (Resetn, CLOCK_50, gnt_top3, faster, slower, req_top3, x_top3, y_top3, color_top3, write_top3);
+    defparam top3.nX     = nX;
+    defparam top3.nY     = nY;
+    defparam top3.X_INIT = 10'd420;
+    defparam top3.COLOR  = 9'b000_000_111;
+
+// btm3
+object btm3 (Resetn, CLOCK_50, gnt_btm3, faster, slower, req_btm3, x_btm3, y_btm3, color_btm3, write_btm3);
+    defparam btm3.nX     = nX;
+    defparam btm3.nY     = nY;
+    defparam btm3.X_INIT = 10'd420;
+    defparam btm3.Y_INIT = 9'd0;
+    defparam btm3.COLOR  = 9'b000_000_111;
+
 
     // connect to VGA controller
     vga_adapter VGA (
