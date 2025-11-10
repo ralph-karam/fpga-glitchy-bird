@@ -75,8 +75,8 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
             y_Q <= Y_D;
 
 
-    object topObstacle(10'd620, 9'd0,   Resetn, CLOCK_50, topGrant, topReq, topX, topY, topWrite, topErase);
-    object bottomObstacle(10'd620, 9'd280, Resetn, CLOCK_50, btmGrant, btmReq, btmX, btmY, btmWrite, btmErase);
+	object topObstacle(10'd620, 9'd0, Resetn, CLOCK_50, topGrant, topReq, topX, topY, topWrite);
+	object bottomObstacle(10'd620, 9'd280, Resetn, CLOCK_50, btmGrant, btmReq, btmX, btmWrite);
 
 
     wire [8:0] fixedColor = 9'b000111000;
@@ -85,9 +85,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     vga_adapter VGA (
 		.resetn(KEY[0]),
 		.clock(CLOCK_50),
-		.color( (y_Q==B) ? (topErase ? 9'b000000000 : 9'b000111000) :
-        (y_Q==C) ? (btmErase ? 9'b000000000 : 9'b000111000) :
-                   9'b000111000 ),
+		.color(fixedColor),
 		.x(MuxX),
 		.y(MuxY),
 		.write(MuxWrite),
@@ -141,11 +139,10 @@ endmodule
 
 
 module object#(parameter nX=10, parameter nY=9, parameter width=60, parameter height=200, parameter KK=19)
-                (Xini, Yini, Resetn, Clock, grant, req, VGA_x, VGA_y, VGA_write, erase_o);        //will be called twice (for bottom and top pillar)
+                (Xini, Yini, Resetn, Clock, grant, req, VGA_x, VGA_y, VGA_write);        //will be called twice (for bottom and top pillar)
 
 
-    output wire erase_o;
-    assign erase_o = erase;
+
     input  wire [nX-1:0] Xini;
     input  wire [nY-1:0] Yini;
     input wire Resetn, Clock;
@@ -162,8 +159,6 @@ module object#(parameter nX=10, parameter nY=9, parameter width=60, parameter he
     wire [nX-1:0] X, XC;    // used to traverse the object's width
 	wire [nY-1:0] Y, YC;    // used to traverse the object's height
     assign Y = Yini;
-
-    wire topErase, btmErase;
 
     // divider for constant speed
     wire [KK-1:0] slow;
@@ -196,7 +191,7 @@ module object#(parameter nX=10, parameter nY=9, parameter width=60, parameter he
 
 always @(*) begin
     case (y_Q)
-        A:  Y_D = B;                               // A: init once, then start initial draw
+        A:  Y_D = B;                               // A: initial state, initializes counters 
 		B:  Y_D = (XC != width-1) ? B : C;         // B: draw row across width
 		C:  Y_D = (YC != height-1) ? B : D;        // C: end row, advance YC until full height done
         D:  Y_D = (!sync) ? D : E;                 // D: wait for constant-speed tick
