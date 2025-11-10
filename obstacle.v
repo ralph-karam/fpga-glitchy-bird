@@ -123,7 +123,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
         defparam O4.nY = nY;
         defparam O4.X_INIT = 10'd420; //spawn at right edge 
         defparam O4.Y_INIT = 9'd0;
-		defparam O4.COLOR = 9'b000_000_000
+		defparam O4.COLOR = 9'b000_000_000;
 		  
 	
 
