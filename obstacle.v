@@ -205,7 +205,7 @@ module object (Resetn, Clock, gnt, faster, slower, req,
 	//erasure color
 	parameter ALT = 9'b111_111_111;
 
-    parameter KK = 24; // controls animation speed (use 16 for DESim, 5 for ModelSim)
+    parameter KK = 19; // controls animation speed (use 16 for DESim, 5 for ModelSim)
     parameter MM = 8;  // animation speed up/down mask (use 6 for DESim, 2 for ModelSim)
 
     // state codes
