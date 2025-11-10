@@ -14,7 +14,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 
 	input wire CLOCK_50;	
 	input wire [9:0] SW;
-	input wire [3:0] KEY;
+	input wire [0:0] KEY;
 	output wire [9:0] LEDR;
 	output wire [7:0] VGA_R;
 	output wire [7:0] VGA_G;
@@ -35,9 +35,9 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     reg MUX_write;
     wire req1, req2, req3, req4;
     reg gnt1, gnt2, gnt3, gnt4;
-    reg [1:0] y_Q, Y_D;
+	reg [2:0] y_Q, Y_D;
 	
-    wire Resetn, faster, slower, set_color;
+    wire Resetn, faster, slower;
 
     assign Resetn = KEY[0];
 
@@ -59,6 +59,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
                 else Y_D = A;
             E:  if (req4) Y_D = E;          // wait for object 4 drawing cycle
                 else Y_D = A;
+
             default:  Y_D = A;
         endcase
 
@@ -90,35 +91,39 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
             y_Q <= Y_D;
 
     // instantiate object 1
-    object O1 (Resetn, CLOCK_50, gnt1, !SW[9], set_color, SW[8:0], faster, slower, req1, 
+	object O1 (Resetn, CLOCK_50, gnt1, faster, slower, req1, 
                O1_x, O1_y, O1_color, O1_write);
         defparam O1.nX = nX;
         defparam O1.nY = nY;
+		defparam O1.color = 9'b111_000_000
 
     // instantiate object 2
-    object O2 (Resetn, CLOCK_50, gnt2, SW[9], set_color, SW[8:0], faster, slower, req2, 
+	object O2 (Resetn, CLOCK_50, gnt2, faster, slower, req2, 
                O2_x, O2_y, O2_color, O2_write);
         defparam O2.nX = nX;
         defparam O2.nY = nY;
         defparam O2.X_INIT = 10'd620; //spawn at right edge 
         defparam O2.Y_INIT = 9'd0;
+		defparam O1.color = 9'b000_111_000
 		  
 		  
 		  // instantiate object 3
-    object O3 (Resetn, CLOCK_50, gnt3, SW[9], set_color, SW[8:0], faster, slower, req3, 
+	object O3 (Resetn, CLOCK_50, gnt3, faster, slower, req3, 
                O3_x, O3_y, O3_color, O3_write);
         defparam O3.nX = nX;
         defparam O3.nY = nY;
         defparam O3.X_INIT = 10'd420; //spawn at right edge 
+		defparam O1.color = 9'b000_000_111
 		  
 		  
 		      // instantiate object 4
-    object O4 (Resetn, CLOCK_50, gnt4, SW[9], set_color, SW[8:0], faster, slower, req4, 
+    object O4 (Resetn, CLOCK_50, gnt4, faster, slower, req4, 
                O4_x, O4_y, O4_color, O4_write);
         defparam O4.nX = nX;
         defparam O4.nY = nY;
         defparam O4.X_INIT = 10'd420; //spawn at right edge 
         defparam O4.Y_INIT = 9'd0;
+		defparam O1.color = 9'b000_000_000
 		  
 	
 
@@ -177,7 +182,7 @@ module Up_count (Clock, Resetn, Q);
 endmodule
 
 // implements a moving colored object
-module object (Resetn, Clock, gnt, sel, set_color, new_color, faster, slower, req,  
+module object (Resetn, Clock, gnt, faster, slower, req,  
                VGA_x, VGA_y, VGA_color, VGA_write);
 
     // specify the number of bits needed for an X (column) pixel coordinate on the VGA display
@@ -194,6 +199,12 @@ module object (Resetn, Clock, gnt, sel, set_color, new_color, faster, slower, re
     parameter X_INIT = 10'd620;
     parameter Y_INIT = 9'd280;
 
+	// default color of the object
+	parameter COLOR = 9'b111111111;
+
+	//erasure color
+	parameter ALT = 9'b111_111_111;
+
     parameter KK = 24; // controls animation speed (use 16 for DESim, 5 for ModelSim)
     parameter MM = 8;  // animation speed up/down mask (use 6 for DESim, 2 for ModelSim)
 
@@ -206,9 +217,7 @@ module object (Resetn, Clock, gnt, sel, set_color, new_color, faster, slower, re
     input wire Resetn, Clock;
     input wire gnt;  // set to 1 when this object is selected for VGA display
     input wire sel;  // when 1, this object's color and speed can be changed
-    input wire set_color;        // new color
     input wire faster, slower;   // used to increase/decrease the object's speed
-    input wire [8:0] new_color;  // used when setting the color
     output reg req; // object sets this request to 1 when it wants to be displayed
 	output wire [nX-1:0] VGA_x;  // pixel x coordinate output
 	output wire [nY-1:0] VGA_y;  // pixel y coordinate ouput
@@ -217,7 +226,7 @@ module object (Resetn, Clock, gnt, sel, set_color, new_color, faster, slower, re
 
 	wire [nX-1:0] X, XC, X0;    // used to traverse the object's width
 	wire [nY-1:0] Y, YC, Y0;    // used to traverse the object's height
-	wire [8:0] the_color, color;    // used when setting the color
+	wire [8:0] color = COLOR;
     wire [KK-1:0] slow;         // used to synchronize the object's speed using a counter
 	 
     reg Lx, Ly, Ex, Lxc, Lyc, Exc, Eyc; // load and enable signals for the object's 
@@ -235,16 +244,14 @@ module object (Resetn, Clock, gnt, sel, set_color, new_color, faster, slower, re
 
     assign X0 = X_INIT;
     assign Y0 = Y_INIT;
-    parameter ALT = 9'b0;   // erasure color
+
     
     UpDn_count U2 (X0, Clock, Resetn, Ex, Lx, 1'b0, X);    // object's column location // X moves left only: count down and wrap via Lx
         defparam U2.n = nX;
 
     UpDn_count U1 (Y0, Clock, Resetn, 1'b0, Ly, 1'b1, Y);      // object's row location // Y stays fixed (load once) no enable 
         defparam U1.n = nY;
-
-    // set default color to white (1...11)
-    assign the_color = color == 9'b0 ? 9'b111111111 : new_color;
+	
 
     UpDn_count U3 ({nX{1'd0}}, Clock, Resetn, Exc, Lxc, 1'b1, XC); // object column counter
         defparam U3.n = nX;
