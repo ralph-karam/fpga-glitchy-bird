@@ -10,7 +10,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     parameter nY = 9;
 
     // state codes for FSM that choses which object to draw at a given time
-    parameter A = 2'b000, B = 2'b001, C = 2'b010, D = 2'b011, E = 3'b100;
+    parameter A = 2'b000, B = 2'b001, C = 2'b010, D = 2'b011, E = 3'b100, F = 3'b101, G = 3'b110;
 
 	input wire CLOCK_50;	
 	input wire [9:0] SW;
@@ -25,16 +25,25 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 	output wire VGA_SYNC_N;
 	output wire VGA_CLK;	
 
-	wire [nX-1:0] O1_x, O2_x, O3_x, O4_x;
-	wire [nY-1:0] O1_y, O2_y, O3_y, O4_y;
-	wire [8:0] O1_color, O2_color, O3_color, O4_color;
-    wire O1_write, O2_write, O3_write, O4_write;
+	wire [nX-1:0] x_top1, x_btm1, x_top2, x_btm2, x_top3, x_btm3;
+	wire [nY-1:0] y_top1, y_btm1, y_top2, y_btm2, y_top3, y_btm3;
+	
+	wire [8:0] color_top1, color_top2, color_top3;
+	wire [8:0] color_btm1, color_btm2, color_btm3;
+	
+    wire write_top1, write_top2, write_top3;
+    wire write_btm1, write_btm2, write_btm3;
+	
+	wire req_top1, req_top2, req_top3;
+	wire req_btm1, req_btm2, req_btm3;
+	
+    reg gnt_top1, gnt_top2, gnt_top3;
+	reg gnt_btm1, gnt_btm2, gnt_btm3;
+	
 	reg [nX-1:0] MUX_x;
 	reg [nY-1:0] MUX_y;
 	reg [8:0] MUX_color;
     reg MUX_write;
-    wire req1, req2, req3, req4;
-    reg gnt1, gnt2, gnt3, gnt4;
 	reg [2:0] y_Q, Y_D;
 	
     wire Resetn, faster, slower;
@@ -43,23 +52,29 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 
     always @ (*)
         case (y_Q)
-            A:  if (req1) Y_D = B;          // see if object 1 wants to be drawn
-                else if (req2) Y_D = C;     // see if object 2 wants to be drawn
-					 else if (req3) Y_D = D;
-					 else if (req4) Y_D = E;
+			A:  if (req_top1) Y_D = B;          // see if object 1 wants to be drawn
+			else if (req_btm1) Y_D = C;     // see if object 2 wants to be drawn
+			else if (req_top2) Y_D = D;
+			else if (req_btm2) Y_D = E;
+			else if (req_top3) Y_D = D;
+			else if (req_btm3) Y_D = E;
                 else Y_D = A;
 					 
+			B:  if (req_top1) Y_D = B;          // wait for object 1 drawing cycle
+                else Y_D = A;
+			C:  if (req_btm1) Y_D = C;          // wait for object 2 drawing cycle
+                else Y_D = A;
 					 
-            B:  if (req1) Y_D = B;          // wait for object 1 drawing cycle
+			D:  if (req_top2) Y_D = D;          // wait for object 3 drawing cycle
                 else Y_D = A;
-            C:  if (req2) Y_D = C;          // wait for object 2 drawing cycle
+			E:  if (req_btm2) Y_D = E;          // wait for object 4 drawing cycle
                 else Y_D = A;
-					 
-            D:  if (req3) Y_D = D;          // wait for object 3 drawing cycle
+			
+			F:  if (req_top3) Y_D = F;          // wait for object 5 drawing cycle
                 else Y_D = A;
-            E:  if (req4) Y_D = E;          // wait for object 4 drawing cycle
+			G:  if (req_btm3) Y_D = G;          // wait for object 6 drawing cycle
                 else Y_D = A;
-
+			
             default:  Y_D = A;
         endcase
 
@@ -67,18 +82,24 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     always @ (*)
     begin
         // default assignments
-        gnt1 = 1'b0; gnt2 = 1'b0; gnt3 = 1'b0; gnt4 = 1'b0; MUX_write = 1'b0;
-        MUX_x = O1_x; MUX_y = O1_y; MUX_color = O1_color;
+        gnt_top1 = 1'b0; gnt_btm1 = 1'b0; gnt_top2 = 1'b0; gnt_btm2 = 1'b0; MUX_write = 1'b0;
+        MUX_x = x_top1; MUX_y = y_top1; MUX_color = color_top1;
         case (y_Q)
             A:  ;
-            B:  begin gnt1 = 1'b1; MUX_write = O1_write; 
-                      MUX_x = O1_x; MUX_y = O1_y; MUX_color = O1_color; end
-            C:  begin gnt2 = 1'b1; MUX_write = O2_write; 
-                      MUX_x = O2_x; MUX_y = O2_y; MUX_color = O2_color; end
-            D:  begin gnt3 = 1'b1; MUX_write = O3_write; 
-                      MUX_x = O3_x; MUX_y = O3_y; MUX_color = O3_color; end
-            E:  begin gnt4 = 1'b1; MUX_write = O4_write; 
-                      MUX_x = O4_x; MUX_y = O4_y; MUX_color = O4_color; end
+            B:  begin gnt_top1 = 1'b1; MUX_write = write_top1; 
+                      MUX_x = x_top1; MUX_y = y_top1; MUX_color = color_top1; end
+            C:  begin gnt_btm1 = 1'b1; MUX_write = write_btm1; 
+                      MUX_x = x_btm1; MUX_y = y_btm1; MUX_color = color_btm1; end
+			
+            D:  begin gnt_top2 = 1'b1; MUX_write = write_top2; 
+                      MUX_x = x_top2; MUX_y = y_top2; MUX_color = color_top2; end
+            E:  begin gnt_btm2 = 1'b1; MUX_write = write_btm2; 
+                      MUX_x = x_btm2; MUX_y = y_btm2; MUX_color = color_btm2; end
+			
+            D:  begin gnt_top3 = 1'b1; MUX_write = write_top3; 
+                      MUX_x = x_top3; MUX_y = y_top3; MUX_color = color_top3; end
+            E:  begin gnt_btm3 = 1'b1; MUX_write = write_btm3; 
+                      MUX_x = x_btm3; MUX_y = y_btm3; MUX_color = color_btm3; end
 				
         endcase
     end
@@ -90,41 +111,53 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
         else
             y_Q <= Y_D;
 
+
+	
     // instantiate object 1
-	object O1 (Resetn, CLOCK_50, gnt1, faster, slower, req1, 
-               O1_x, O1_y, O1_color, O1_write);
+	object top1 (Resetn, CLOCK_50, gnt_top1, faster, slower, req_top1, x_top1, y_top1, color_top1, O1_write);
         defparam O1.nX = nX;
         defparam O1.nY = nY;
-		defparam O1.COLOR = 9'b111_000_000;
+		defparam O1.COLOR = 9'b000_111_000;
 
     // instantiate object 2
-	object O2 (Resetn, CLOCK_50, gnt2, faster, slower, req2, 
-               O2_x, O2_y, O2_color, O2_write);
+	object btm1 (Resetn, CLOCK_50, gnt_btm1, faster, slower, req_btm1, x_btm1, y_btm1, color_btm1, O2_write);
         defparam O2.nX = nX;
         defparam O2.nY = nY;
         defparam O2.X_INIT = 10'd620; //spawn at right edge 
-        defparam O2.Y_INIT = 9'd0;
+        defparam O2.Y_INIT = 9'd280;
 		defparam O2.COLOR = 9'b000_111_000;
-		  
-		  
-		  // instantiate object 3
-	object O3 (Resetn, CLOCK_50, gnt3, faster, slower, req3, 
-               O3_x, O3_y, O3_color, O3_write);
+
+	
+	// instantiate object 3
+	object top2 (Resetn, CLOCK_50, gnt_top2, faster, slower, req_top2, x_top2, y_top2, color_top2, O3_write);
         defparam O3.nX = nX;
         defparam O3.nY = nY;
-        defparam O3.X_INIT = 10'd420; //spawn at right edge 
+        defparam O3.X_INIT = 10'd420; 
 		defparam O3.COLOR = 9'b000_000_111;
 		  
-		  
-		      // instantiate object 4
-    object O4 (Resetn, CLOCK_50, gnt4, faster, slower, req4, 
-               O4_x, O4_y, O4_color, O4_write);
+	// instantiate object 4
+	object btm2 (Resetn, CLOCK_50, gnt_btm2, faster, slower, req_btm2, x_btm2, y_btm2, color_btm2, O4_write);
         defparam O4.nX = nX;
         defparam O4.nY = nY;
-        defparam O4.X_INIT = 10'd420; //spawn at right edge 
-        defparam O4.Y_INIT = 9'd0;
-		defparam O4.COLOR = 9'b000_000_000;
+        defparam O4.X_INIT = 10'd420;
+        defparam O4.Y_INIT = 9'd280;
+		defparam O4.COLOR = 9'b000_000_111;
+
+	
+	// instantiate object 5
+	object top3 (Resetn, CLOCK_50, gnt_top3, faster, slower, req_top3, x_top3, y_top3, color_top3, write_top3);
+        defparam O3.nX = nX;
+        defparam O3.nY = nY;
+        defparam O3.X_INIT = 10'd220;
+		defparam O3.COLOR = 9'b111_000_000;
 		  
+	// instantiate object 6
+	object btm3 (Resetn, CLOCK_50, gnt_btm3, faster, slower, req_btm3, x_btm3, y_btm3, color_btm3, write_btm3);
+        defparam O4.nX = nX;
+        defparam O4.nY = nY;
+        defparam O4.X_INIT = 10'd220; 
+        defparam O4.Y_INIT = 9'd280;
+		defparam O4.COLOR = 9'b111_000_000;
 	
 
     // connect to VGA controller
@@ -197,7 +230,7 @@ module object (Resetn, Clock, gnt, faster, slower, req,
 
     // default initial location of the object 
     parameter X_INIT = 10'd620;
-    parameter Y_INIT = 9'd280;
+    parameter Y_INIT = 9'd0;
 
 	// default color of the object
 	parameter COLOR = 9'b111111111;
