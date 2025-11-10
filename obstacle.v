@@ -130,14 +130,14 @@ object btm1 (Resetn, CLOCK_50, gnt_btm1, faster, slower, req_btm1, x_btm1, y_btm
 object top2 (Resetn, CLOCK_50, gnt_top2, faster, slower, req_top2, x_top2, y_top2, color_top2, write_top2);
     defparam top2.nX     = nX;
     defparam top2.nY     = nY;
-    defparam top2.X_INIT = 10'd420;
+    defparam top2.X_INIT = 10'd520;
     defparam top2.COLOR  = 9'b000_000_111;
 
 // btm2
 object btm2 (Resetn, CLOCK_50, gnt_btm2, faster, slower, req_btm2, x_btm2, y_btm2, color_btm2, write_btm2);
     defparam btm2.nX     = nX;
     defparam btm2.nY     = nY;
-    defparam btm2.X_INIT = 10'd420;
+    defparam btm2.X_INIT = 10'd520;
     defparam btm2.Y_INIT = 9'd280;
     defparam btm2.COLOR  = 9'b000_000_111;
 
@@ -145,14 +145,14 @@ object btm2 (Resetn, CLOCK_50, gnt_btm2, faster, slower, req_btm2, x_btm2, y_btm
 object top3 (Resetn, CLOCK_50, gnt_top3, faster, slower, req_top3, x_top3, y_top3, color_top3, write_top3);
     defparam top3.nX     = nX;
     defparam top3.nY     = nY;
-    defparam top3.X_INIT = 10'd220;
+    defparam top3.X_INIT = 10'd420;
     defparam top3.COLOR  = 9'b111_000_000;
 
 // btm3
 object btm3 (Resetn, CLOCK_50, gnt_btm3, faster, slower, req_btm3, x_btm3, y_btm3, color_btm3, write_btm3);
     defparam btm3.nX     = nX;
     defparam btm3.nY     = nY;
-    defparam btm3.X_INIT = 10'd220;
+    defparam btm3.X_INIT = 10'd420;
     defparam btm3.Y_INIT = 9'd280;
     defparam btm3.COLOR  = 9'b111_000_000;
 
@@ -235,14 +235,23 @@ module object (Resetn, Clock, gnt, faster, slower, req,
 	//erasure color
 	parameter ALT = 9'b000_000_000;
 
-    parameter KK = 19; // controls animation speed (use 16 for DESim, 5 for ModelSim)
+    parameter KK = 21; // controls animation speed (use 16 for DESim, 5 for ModelSim)
     parameter MM = 8;  // animation speed up/down mask (use 6 for DESim, 2 for ModelSim)
 
     // state codes
     parameter A = 4'b0000, B = 4'b0001, C = 4'b0010, D = 4'b0011,
               E = 4'b0100, F = 4'b0101, G = 4'b0110, H = 4'b0111,
               I = 4'b1000, J = 4'b1001, K = 4'b1010, L = 4'b1011;
+
+	
 	wire [nX-1:0] X_RIGHT = XSCREEN[nX-1:0] - XDIM[nX-1:0];
+
+	// true only when we're in the move state and about to wrap
+	wire wrap_load = (y_Q == I) && (X == 'd0);
+
+	// value that UpDn_count will load into X on Lx
+	wire [nX-1:0] X_RLOAD = wrap_load ? X_RIGHT : X_INIT;
+	
 
     input wire Resetn, Clock;
     input wire gnt;  // set to 1 when this object is selected for VGA display
@@ -275,7 +284,7 @@ module object (Resetn, Clock, gnt, faster, slower, req,
     assign Y0 = Y_INIT;
 
     
-    UpDn_count U2 (X0, Clock, Resetn, Ex, Lx, 1'b0, X);    // object's column location // X moves left only: count down and wrap via Lx
+	UpDn_count U2 (X_RLOAD, Clock, Resetn, Ex, Lx, 1'b0, X);    // object's column location // X moves left only: count down and wrap via Lx
         defparam U2.n = nX;
 
     UpDn_count U1 (Y0, Clock, Resetn, 1'b0, Ly, 1'b1, Y);      // object's row location // Y stays fixed (load once) no enable 
