@@ -130,14 +130,14 @@ object btm1 (Resetn, CLOCK_50, gnt_btm1, faster, slower, req_btm1, x_btm1, y_btm
 object top2 (Resetn, CLOCK_50, gnt_top2, faster, slower, req_top2, x_top2, y_top2, color_top2, write_top2);
     defparam top2.nX     = nX;
     defparam top2.nY     = nY;
-    defparam top2.X_INIT = 10'd520;
+    defparam top2.X_INIT = 10'd420;
     defparam top2.COLOR  = 9'b000_000_111;
 
 // btm2
 object btm2 (Resetn, CLOCK_50, gnt_btm2, faster, slower, req_btm2, x_btm2, y_btm2, color_btm2, write_btm2);
     defparam btm2.nX     = nX;
     defparam btm2.nY     = nY;
-    defparam btm2.X_INIT = 10'd520;
+    defparam btm2.X_INIT = 10'd420;
     defparam btm2.Y_INIT = 9'd280;
     defparam btm2.COLOR  = 9'b000_000_111;
 
@@ -145,14 +145,14 @@ object btm2 (Resetn, CLOCK_50, gnt_btm2, faster, slower, req_btm2, x_btm2, y_btm
 object top3 (Resetn, CLOCK_50, gnt_top3, faster, slower, req_top3, x_top3, y_top3, color_top3, write_top3);
     defparam top3.nX     = nX;
     defparam top3.nY     = nY;
-    defparam top3.X_INIT = 10'd420;
+    defparam top3.X_INIT = 10'd220;
     defparam top3.COLOR  = 9'b111_000_000;
 
 // btm3
 object btm3 (Resetn, CLOCK_50, gnt_btm3, faster, slower, req_btm3, x_btm3, y_btm3, color_btm3, write_btm3);
     defparam btm3.nX     = nX;
     defparam btm3.nY     = nY;
-    defparam btm3.X_INIT = 10'd420;
+    defparam btm3.X_INIT = 10'd220;
     defparam btm3.Y_INIT = 9'd280;
     defparam btm3.COLOR  = 9'b111_000_000;
 
