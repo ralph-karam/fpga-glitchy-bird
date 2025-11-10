@@ -146,7 +146,7 @@ object top3 (Resetn, CLOCK_50, gnt_top3, faster, slower, req_top3, x_top3, y_top
     defparam top3.nX     = nX;
     defparam top3.nY     = nY;
     defparam top3.X_INIT = 10'd220;
-    defparam top3.COLOR  = 9'b000_000_111;
+    defparam top3.COLOR  = 9'b111_000_000;
 
 // btm3
 object btm3 (Resetn, CLOCK_50, gnt_btm3, faster, slower, req_btm3, x_btm3, y_btm3, color_btm3, write_btm3);
@@ -154,7 +154,7 @@ object btm3 (Resetn, CLOCK_50, gnt_btm3, faster, slower, req_btm3, x_btm3, y_btm
     defparam btm3.nY     = nY;
     defparam btm3.X_INIT = 10'd220;
     defparam btm3.Y_INIT = 9'd0;
-    defparam btm3.COLOR  = 9'b000_000_111;
+    defparam btm3.COLOR  = 9'b111_000_000;
 
 
     // connect to VGA controller
