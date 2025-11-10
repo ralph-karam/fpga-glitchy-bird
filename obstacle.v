@@ -9,7 +9,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     parameter nY = 9;
 
     // state codes for FSM that choses which object to draw at a given time
-    parameter A = 2'b000, B = 2'b001, C = 2'b010, D = 2'b011, E = 3'b100, F = 3'b101, G = 3'b110;
+    parameter A = 3'b000, B = 3'b001, C = 3'b010, D = 3'b011, E = 3'b100, F = 3'b101, G = 3'b110;
 
 	input wire CLOCK_50;	
 	input wire [9:0] SW;
@@ -55,8 +55,8 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 			else if (req_btm1) Y_D = C;     // see if object 2 wants to be drawn
 			else if (req_top2) Y_D = D;
 			else if (req_btm2) Y_D = E;
-			else if (req_top3) Y_D = D;
-			else if (req_btm3) Y_D = E;
+			else if (req_top3) Y_D = F;
+			else if (req_btm3) Y_D = G;
                 else Y_D = A;
 					 
 			B:  if (req_top1) Y_D = B;          // wait for object 1 drawing cycle
@@ -138,7 +138,7 @@ object btm2 (Resetn, CLOCK_50, gnt_btm2, faster, slower, req_btm2, x_btm2, y_btm
     defparam btm2.nX     = nX;
     defparam btm2.nY     = nY;
     defparam btm2.X_INIT = 10'd420;
-    defparam btm2.Y_INIT = 9'd0;
+    defparam btm2.Y_INIT = 9'd280;
     defparam btm2.COLOR  = 9'b000_000_111;
 
 // top3
@@ -153,7 +153,7 @@ object btm3 (Resetn, CLOCK_50, gnt_btm3, faster, slower, req_btm3, x_btm3, y_btm
     defparam btm3.nX     = nX;
     defparam btm3.nY     = nY;
     defparam btm3.X_INIT = 10'd220;
-    defparam btm3.Y_INIT = 9'd0;
+    defparam btm3.Y_INIT = 9'd280;
     defparam btm3.COLOR  = 9'b111_000_000;
 
 
@@ -233,7 +233,7 @@ module object (Resetn, Clock, gnt, faster, slower, req,
 	parameter COLOR = 9'b111111111;
 
 	//erasure color
-	parameter ALT = 9'b111_111_111;
+	parameter ALT = 9'b000_000_000;
 
     parameter KK = 19; // controls animation speed (use 16 for DESim, 5 for ModelSim)
     parameter MM = 8;  // animation speed up/down mask (use 6 for DESim, 2 for ModelSim)
