@@ -264,7 +264,7 @@ module Up_count (Clock, Resetn, Q);
             Q <= Q + 1'b1;
 endmodule
 
-// ===================== object (with parse fixes) =====================
+// ===================== object (fixed single declarations) =====================
 module object (Resetn, Clock, gnt, faster, slower, req,
                VGA_x, VGA_y, VGA_color, VGA_write);
 
@@ -296,9 +296,10 @@ module object (Resetn, Clock, gnt, faster, slower, req,
               E = 4'b0100, F = 4'b0101, G = 4'b0110, H = 4'b0111,
               I = 4'b1000, J = 4'b1001, K = 4'b1010, L = 4'b1011;
 
-    // ---- FIX: avoid slicing a param with a variable range ----
-    localparam [nX-1:0] XSCR_NX = 10'd640;
-    wire [nX-1:0] X_RIGHT = XSCR_NX - XDIM[nX-1:0];
+    // Cast to nX width safely for arithmetic
+    localparam [nX-1:0] XSCR_NX  = 10'd640;
+    localparam [nX-1:0] XDIM_NX  = 10'd50;  // if you override XDIM via defparam, update this too
+    wire [nX-1:0] X_RIGHT = XSCR_NX - XDIM_NX;
 
     input  wire Resetn, Clock;
     input  wire gnt;
@@ -320,7 +321,7 @@ module object (Resetn, Clock, gnt, faster, slower, req,
     reg  [3:0] y_Q, Y_D;
     reg  write;
 
-    // speed-mask FSM
+    // ---- speed-mask FSM signals (declare ONCE) ----
     reg  [2:0] ys_Q, Ys_D;
     reg  sll, srl;
     reg  [MM-1:0] mask;
@@ -330,7 +331,7 @@ module object (Resetn, Clock, gnt, faster, slower, req,
 
     // wrap-to-right logic
     wire wrap_load = (y_Q == I) && (X == 'd0);
-    wire [nX-1:0] X_RLOAD = wrap_load ? X_RIGHT : X_INIT;
+    wire [nX-1:0] X_RLOAD = wrap_load ? X_RIGHT : X0;
 
     // X pos (count down, load to wrap)
     UpDn_count U2 (X_RLOAD, Clock, Resetn, Ex, Lx, 1'b0, X);
@@ -341,9 +342,9 @@ module object (Resetn, Clock, gnt, faster, slower, req,
         defparam U1.n = nY;
 
     // pixel traversers
-    UpDn_count U3 ({nX{1'd0}}, Clock, Resetn, Exc, Lxc, 1'b1, XC);
+    UpDn_count U3 ({nX{1'b0}}, Clock, Resetn, Exc, Lxc, 1'b1, XC);
         defparam U3.n = nX;
-    UpDn_count U4 ({nY{1'd0}}, Clock, Resetn, Eyc, Lyc, 1'b1, YC);
+    UpDn_count U4 ({nY{1'b0}}, Clock, Resetn, Eyc, Lyc, 1'b1, YC);
         defparam U4.n = nY;
 
     // slow counter
@@ -385,7 +386,6 @@ module object (Resetn, Clock, gnt, faster, slower, req,
 
     // state outputs
     always @(*) begin
-        // defaults
         Lx=1'b0; Ly=1'b0; Lxc=1'b0; Lyc=1'b0; Exc=1'b0; Eyc=1'b0;
         erase=1'b0; write=1'b0; Ex=1'b0; Tdir=1'b0; req=1'b0;
 
@@ -411,7 +411,7 @@ module object (Resetn, Clock, gnt, faster, slower, req,
         else                y_Q <= Y_D;
     end
 
-    // speed-mask FSM
+    // ---------- speed-mask FSM ----------
     parameter As = 3'b000, Bs = 3'b001, Cs = 3'b010, Ds = 3'b011, Es = 3'b100;
 
     always @(*) begin
@@ -427,7 +427,6 @@ module object (Resetn, Clock, gnt, faster, slower, req,
         endcase
     end
 
-    reg sll, srl;
     always @(*) begin
         sll=1'b0; srl=1'b0;
         case (ys_Q)
@@ -438,9 +437,6 @@ module object (Resetn, Clock, gnt, faster, slower, req,
             Es: ;
         endcase
     end
-
-    reg [MM-1:0] mask;
-    reg [2:0]    ys_Q, Ys_D;
 
     always @(posedge Clock) begin
         if (Resetn == 1'b0) ys_Q <= As;
