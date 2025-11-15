@@ -46,7 +46,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     reg MUX_write;
 	reg [2:0] y_Q, Y_D;
 	
-    wire Resetn, faster, slower;
+    wire Resetn;
 
     assign Resetn = KEY[0];
 
@@ -114,13 +114,13 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 
 	
 // top1
-object top1 (Resetn, CLOCK_50, gnt_top1, faster, slower, req_top1, x_top1, y_top1, color_top1, write_top1);
+object top1 (Resetn, CLOCK_50, gnt_top1, req_top1, x_top1, y_top1, color_top1, write_top1);
     defparam top1.nX    = nX;
     defparam top1.nY    = nY;
     defparam top1.COLOR = 9'b000_111_000;
 
 // btm1
-object btm1 (Resetn, CLOCK_50, gnt_btm1, faster, slower, req_btm1, x_btm1, y_btm1, color_btm1, write_btm1);
+object btm1 (Resetn, CLOCK_50, gnt_btm1, req_btm1, x_btm1, y_btm1, color_btm1, write_btm1);
     defparam btm1.nX     = nX;
     defparam btm1.nY     = nY;
     defparam btm1.X_INIT = 10'd620;
@@ -128,14 +128,14 @@ object btm1 (Resetn, CLOCK_50, gnt_btm1, faster, slower, req_btm1, x_btm1, y_btm
     defparam btm1.COLOR  = 9'b000_111_000;
 
 // top2
-object top2 (Resetn, CLOCK_50, gnt_top2, faster, slower, req_top2, x_top2, y_top2, color_top2, write_top2);
+object top2 (Resetn, CLOCK_50, gnt_top2, req_top2, x_top2, y_top2, color_top2, write_top2);
     defparam top2.nX     = nX;
     defparam top2.nY     = nY;
     defparam top2.X_INIT = 10'd420;
     defparam top2.COLOR  = 9'b000_000_111;
 
 // btm2
-object btm2 (Resetn, CLOCK_50, gnt_btm2, faster, slower, req_btm2, x_btm2, y_btm2, color_btm2, write_btm2);
+object btm2 (Resetn, CLOCK_50, gnt_btm2, req_btm2, x_btm2, y_btm2, color_btm2, write_btm2);
     defparam btm2.nX     = nX;
     defparam btm2.nY     = nY;
     defparam btm2.X_INIT = 10'd420;
@@ -143,14 +143,14 @@ object btm2 (Resetn, CLOCK_50, gnt_btm2, faster, slower, req_btm2, x_btm2, y_btm
     defparam btm2.COLOR  = 9'b000_000_111;
 
 // top3
-object top3 (Resetn, CLOCK_50, gnt_top3, faster, slower, req_top3, x_top3, y_top3, color_top3, write_top3);
+object top3 (Resetn, CLOCK_50, gnt_top3, req_top3, x_top3, y_top3, color_top3, write_top3);
     defparam top3.nX     = nX;
     defparam top3.nY     = nY;
     defparam top3.X_INIT = 10'd220;
     defparam top3.COLOR  = 9'b111_000_000;
 
 // btm3
-object btm3 (Resetn, CLOCK_50, gnt_btm3, faster, slower, req_btm3, x_btm3, y_btm3, color_btm3, write_btm3);
+object btm3 (Resetn, CLOCK_50, gnt_btm3, req_btm3, x_btm3, y_btm3, color_btm3, write_btm3);
     defparam btm3.nX     = nX;
     defparam btm3.nY     = nY;
     defparam btm3.X_INIT = 10'd220;
@@ -213,7 +213,7 @@ module Up_count (Clock, Resetn, Q);
 endmodule
 
 // implements a moving colored object
-module object (Resetn, Clock, gnt, faster, slower, req,  
+module object (Resetn, Clock, gnt, req,  
                VGA_x, VGA_y, VGA_color, VGA_write);
 
     // specify the number of bits needed for an X (column) pixel coordinate on the VGA display
@@ -237,8 +237,7 @@ module object (Resetn, Clock, gnt, faster, slower, req,
 	parameter ALT = 9'b000_000_000;
 
     parameter KK = 21; // controls animation speed (use 16 for DESim, 5 for ModelSim)
-    parameter MM = 8;  // animation speed up/down mask (use 6 for DESim, 2 for ModelSim)
-
+  
     // state codes
     parameter A = 4'b0000, B = 4'b0001, C = 4'b0010, D = 4'b0011,
               E = 4'b0100, F = 4'b0101, G = 4'b0110, H = 4'b0111,
@@ -256,7 +255,6 @@ module object (Resetn, Clock, gnt, faster, slower, req,
 
     input wire Resetn, Clock;
     input wire gnt;  // set to 1 when this object is selected for VGA display
-    input wire faster, slower;   // used to increase/decrease the object's speed
     output reg req; // object sets this request to 1 when it wants to be displayed
 	output wire [nX-1:0] VGA_x;  // pixel x coordinate output
 	output wire [nY-1:0] VGA_y;  // pixel y coordinate ouput
@@ -276,10 +274,6 @@ module object (Resetn, Clock, gnt, faster, slower, req,
     reg [3:0] y_Q, Y_D; // FSM for controlling drawing/erasing of the object
     reg write;          // used to write to a pixel
 
-    // mask logic (speed control)
-    reg [2:0] ys_Q, Ys_D;   // FSM to control the object's speed
-    reg sll, srl;           // shift the mask left or right
-    reg [MM-1:0] mask;      // the mask (see FSM description below)
 
     assign X0 = X_INIT;
     assign Y0 = Y_INIT;
@@ -301,7 +295,7 @@ module object (Resetn, Clock, gnt, faster, slower, req,
         defparam U6.n = KK;
 
  
-    assign sync = ((slow | (mask << KK-MM)) == {KK{1'b1}});
+    assign sync = ((slow == {KK{1'b1}});
 
 
     assign VGA_x = X + XC;                          // pixel x coordinate
@@ -378,58 +372,7 @@ module object (Resetn, Clock, gnt, faster, slower, req,
         else
             y_Q <= Y_D;
 
-    // specify the mask shift register. Shift in 1's from the MSB to speed up an object's
-    // movement, and shift in 0's from the LSB to slow down an object's movement
-    always @(posedge Clock) begin
-        if (Resetn == 0)
-            mask <= 'b0;
-        else if (srl) begin
-            mask[MM-2:0] <= mask[MM-1:1];
-            mask[MM-1] <= 1'b1;
-        end
-        else if (sll) begin
-            mask[MM-1:1] <= mask[MM-2:0];
-            mask[0] <= 1'b0;
-        end
-    end
-
-    // state codes for controlling the mask shift register
-    parameter As = 3'b000, Bs = 3'b001, Cs = 3'b010, Ds = 3'b011, Es = 3'b100;
-
-    // FSM for controlling speed of movement
-    always @ (*)
-        case (ys_Q)
-            As: if (faster) Ys_D = Bs;
-                else if (slower) Ys_D = Ds;
-                else Ys_D = As;
-            Bs: Ys_D = Cs;    // one cycle to shift
-            Cs: if (faster) Ys_D = Cs; // wait for KEY release
-                else Ys_D = As;
-            Ds: Ys_D = Es;    // one cycle to shift
-            Es: if (slower) Ys_D = Es; // wait for KEY release
-                else Ys_D = As;
-            default: Ys_D = As;
-        endcase
-    // FSM outputs
-    always @ (*)
-    begin
-        // default assignments
-        sll = 1'b0; srl = 1'b0;
-        case (ys_Q)
-            As:  ;
-            Bs:  srl = 1'b1;    // shift in a 1 from the MSB
-            Cs:  ;
-            Ds:  sll = 1'b1;    // shift in a 0 from the LSB
-            Es:  ;
-        endcase
-    end
-
-    always @(posedge Clock)
-        if (Resetn == 0)
-            ys_Q <= As;
-        else
-            ys_Q <= Ys_D;
-
+    
 endmodule
 
 
@@ -437,3 +380,5 @@ endmodule
 //This is animation demo with the following changes: XDIM YDIM XINI YINI
 // Updwn counters function declarations Ey becomes 0 and reg Ex appears. Ydir becomes 1 and Xdir appears
 // State I becomes // move the object I:  begin req = 1'b1; Ex = 1'b1; Lx = (X == 'd0); end
+// Also removed everything that had to do with speed control (constant speed KK)
+// 	which means everything with mask, MM, faster, slower...
