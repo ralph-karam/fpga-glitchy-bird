@@ -295,7 +295,7 @@ module object (Resetn, Clock, gnt, req,
         defparam U6.n = KK;
 
  
-    assign sync = ((slow == {KK{1'b1}});
+    assign sync = (slow == {KK{1'b1}});
 
 
     assign VGA_x = X + XC;                          // pixel x coordinate
