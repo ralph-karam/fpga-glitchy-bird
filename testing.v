@@ -3,11 +3,10 @@
 module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
                  VGA_HS, VGA_VS, VGA_BLANK_N, VGA_SYNC_N, VGA_CLK);
 
-    // pixel coordinate widths
     parameter nX = 10;
     parameter nY = 9;
 
-    // arbiter states
+    // FSM states (3 bits because we have up to G)
     parameter A = 3'b000, B = 3'b001, C = 3'b010, D = 3'b011,
               E = 3'b100, F = 3'b101, G = 3'b110;
 
@@ -15,42 +14,41 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     input  wire [9:0]  SW;
     input  wire [0:0]  KEY;
     output wire [9:0]  LEDR;
-    output wire [7:0]  VGA_R;
-    output wire [7:0]  VGA_G;
-    output wire [7:0]  VGA_B;
-    output wire        VGA_HS;
-    output wire        VGA_VS;
-    output wire        VGA_BLANK_N;
-    output wire        VGA_SYNC_N;
-    output wire        VGA_CLK;
+    output wire [7:0]  VGA_R, VGA_G, VGA_B;
+    output wire        VGA_HS, VGA_VS, VGA_BLANK_N, VGA_SYNC_N, VGA_CLK;
 
-    // six objects: top1/btm1, top2/btm2, top3/btm3
+    // -------- Wires for six objects (top/btm 1..3) --------
     wire [nX-1:0] x_top1, x_btm1, x_top2, x_btm2, x_top3, x_btm3;
     wire [nY-1:0] y_top1, y_btm1, y_top2, y_btm2, y_top3, y_btm3;
 
-    wire [8:0]  color_top1, color_top2, color_top3;
-    wire [8:0]  color_btm1, color_btm2, color_btm3;
+    wire [8:0] color_top1, color_top2, color_top3;
+    wire [8:0] color_btm1, color_btm2, color_btm3;
 
-    wire        write_top1, write_top2, write_top3;
-    wire        write_btm1, write_btm2, write_btm3;
+    wire write_top1, write_top2, write_top3;
+    wire write_btm1, write_btm2, write_btm3;
 
-    wire        req_top1, req_top2, req_top3;
-    wire        req_btm1, req_btm2, req_btm3;
+    wire req_top1, req_top2, req_top3;
+    wire req_btm1, req_btm2, req_btm3;
 
-    reg         gnt_top1, gnt_top2, gnt_top3;
-    reg         gnt_btm1, gnt_btm2, gnt_btm3;
+    reg  gnt_top1, gnt_top2, gnt_top3;
+    reg  gnt_btm1, gnt_btm2, gnt_btm3;
 
+    // VGA mux
     reg  [nX-1:0] MUX_x;
     reg  [nY-1:0] MUX_y;
     reg  [8:0]    MUX_color;
     reg           MUX_write;
+
     reg  [2:0]    y_Q, Y_D;
 
-    wire Resetn = KEY[0];
-    wire faster = SW[0];
-    wire slower = SW[1];
+    wire Resetn;
+    assign Resetn = KEY[0];
 
-    // -------- Arbiter (unchanged shape, extended to 6 objects) --------
+    // Tie speed controls low (avoid X)
+    wire faster = 1'b0;
+    wire slower = 1'b0;
+
+    // ------------ Arbiter ------------
     always @(*) begin
         case (y_Q)
             A:  if (req_top1) Y_D = B;
@@ -61,27 +59,31 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
                 else if (req_btm3) Y_D = G;
                 else Y_D = A;
 
-            B:  Y_D = (req_top1 ) ? B : A;
-            C:  Y_D = (req_btm1 ) ? C : A;
-            D:  Y_D = (req_top2 ) ? D : A;
-            E:  Y_D = (req_btm2 ) ? E : A;
-            F:  Y_D = (req_top3 ) ? F : A;
-            G:  Y_D = (req_btm3 ) ? G : A;
+            B:  Y_D = (req_top1) ? B : A;
+            C:  Y_D = (req_btm1) ? C : A;
+            D:  Y_D = (req_top2) ? D : A;
+            E:  Y_D = (req_btm2) ? E : A;
+            F:  Y_D = (req_top3) ? F : A;
+            G:  Y_D = (req_btm3) ? G : A;
             default: Y_D = A;
         endcase
     end
 
     always @(*) begin
-        gnt_top1=0; gnt_btm1=0; gnt_top2=0; gnt_btm2=0; gnt_top3=0; gnt_btm3=0;
-        MUX_write=0; MUX_x=x_top1; MUX_y=y_top1; MUX_color=color_top1;
+        // defaults
+        gnt_top1 = 1'b0; gnt_btm1 = 1'b0;
+        gnt_top2 = 1'b0; gnt_btm2 = 1'b0;
+        gnt_top3 = 1'b0; gnt_btm3 = 1'b0;
+        MUX_write = 1'b0; MUX_x = x_top1; MUX_y = y_top1; MUX_color = color_top1;
+
         case (y_Q)
-            A: ;
-            B: begin gnt_top1=1; MUX_write=write_top1; MUX_x=x_top1; MUX_y=y_top1; MUX_color=color_top1; end
-            C: begin gnt_btm1=1; MUX_write=write_btm1; MUX_x=x_btm1; MUX_y=y_btm1; MUX_color=color_btm1; end
-            D: begin gnt_top2=1; MUX_write=write_top2; MUX_x=x_top2; MUX_y=y_top2; MUX_color=color_top2; end
-            E: begin gnt_btm2=1; MUX_write=write_btm2; MUX_x=x_btm2; MUX_y=y_btm2; MUX_color=color_btm2; end
-            F: begin gnt_top3=1; MUX_write=write_top3; MUX_x=x_top3; MUX_y=y_top3; MUX_color=color_top3; end
-            G: begin gnt_btm3=1; MUX_write=write_btm3; MUX_x=x_btm3; MUX_y=y_btm3; MUX_color=color_btm3; end
+            A: ; // idle
+            B: begin gnt_top1 = 1'b1;  MUX_write = write_top1;  MUX_x = x_top1;  MUX_y = y_top1;  MUX_color = color_top1; end
+            C: begin gnt_btm1 = 1'b1;  MUX_write = write_btm1;  MUX_x = x_btm1;  MUX_y = y_btm1;  MUX_color = color_btm1; end
+            D: begin gnt_top2 = 1'b1;  MUX_write = write_top2;  MUX_x = x_top2;  MUX_y = y_top2;  MUX_color = color_top2; end
+            E: begin gnt_btm2 = 1'b1;  MUX_write = write_btm2;  MUX_x = x_btm2;  MUX_y = y_btm2;  MUX_color = color_btm2; end
+            F: begin gnt_top3 = 1'b1;  MUX_write = write_top3;  MUX_x = x_top3;  MUX_y = y_top3;  MUX_color = color_top3; end
+            G: begin gnt_btm3 = 1'b1;  MUX_write = write_btm3;  MUX_x = x_btm3;  MUX_y = y_btm3;  MUX_color = color_btm3; end
         endcase
     end
 
@@ -89,374 +91,314 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
         if (!Resetn) y_Q <= A;
         else         y_Q <= Y_D;
 
-    // ------------------- OBJECT INSTANTIATIONS -------------------
-    // Pair 1 (green), X=620, seed 101
+    // --------- Six objects (positional ports + defparam) ---------
+
+    // Pair 1 (spawn right & mid)
     object top1 (Resetn, CLOCK_50, gnt_top1, faster, slower, req_top1, x_top1, y_top1, color_top1, write_top1);
         defparam top1.nX      = nX;
         defparam top1.nY      = nY;
+        defparam top1.COLOR   = 9'b111_000_000; // red
         defparam top1.X_INIT  = 10'd620;
-        defparam top1.COLOR   = 9'b000_111_000;
-        defparam top1.IS_TOP  = 1;
-        defparam top1.SEED    = 8'd101;   // pair seed
-        defparam top1.GAP     = 9'd120;
+        defparam top1.Y_INIT  = 9'd0;           // top pillar base at 0
         defparam top1.MIN_TOP = 9'd20;
         defparam top1.MIN_BTM = 9'd20;
+        defparam top1.GAP     = 9'd120;
+        defparam top1.IS_TOP  = 1;              // <—— top
 
     object btm1 (Resetn, CLOCK_50, gnt_btm1, faster, slower, req_btm1, x_btm1, y_btm1, color_btm1, write_btm1);
         defparam btm1.nX      = nX;
         defparam btm1.nY      = nY;
+        defparam btm1.COLOR   = 9'b111_000_000; // red
         defparam btm1.X_INIT  = 10'd620;
-        defparam btm1.COLOR   = 9'b000_111_000;
-        defparam btm1.IS_TOP  = 0;
-        defparam btm1.SEED    = 8'd101;   // same seed as top1
-        defparam btm1.GAP     = 9'd120;
+        defparam btm1.Y_INIT  = 9'd0;           // ignored; base fixed by logic
         defparam btm1.MIN_TOP = 9'd20;
         defparam btm1.MIN_BTM = 9'd20;
+        defparam btm1.GAP     = 9'd120;
+        defparam btm1.IS_TOP  = 0;              // <—— bottom
 
-    // Pair 2 (blue), X=420, seed 77
+    // Pair 2 (stagger left)
     object top2 (Resetn, CLOCK_50, gnt_top2, faster, slower, req_top2, x_top2, y_top2, color_top2, write_top2);
         defparam top2.nX      = nX;
         defparam top2.nY      = nY;
+        defparam top2.COLOR   = 9'b111_000_000;
         defparam top2.X_INIT  = 10'd420;
-        defparam top2.COLOR   = 9'b000_000_111;
-        defparam top2.IS_TOP  = 1;
-        defparam top2.SEED    = 8'd77;
-        defparam top2.GAP     = 9'd120;
+        defparam top2.Y_INIT  = 9'd0;
         defparam top2.MIN_TOP = 9'd20;
         defparam top2.MIN_BTM = 9'd20;
+        defparam top2.GAP     = 9'd120;
+        defparam top2.IS_TOP  = 1;
 
     object btm2 (Resetn, CLOCK_50, gnt_btm2, faster, slower, req_btm2, x_btm2, y_btm2, color_btm2, write_btm2);
         defparam btm2.nX      = nX;
         defparam btm2.nY      = nY;
+        defparam btm2.COLOR   = 9'b111_000_000;
         defparam btm2.X_INIT  = 10'd420;
-        defparam btm2.COLOR   = 9'b000_000_111;
-        defparam btm2.IS_TOP  = 0;
-        defparam btm2.SEED    = 8'd77;   // same seed as top2
-        defparam btm2.GAP     = 9'd120;
+        defparam btm2.Y_INIT  = 9'd0;
         defparam btm2.MIN_TOP = 9'd20;
         defparam btm2.MIN_BTM = 9'd20;
+        defparam btm2.GAP     = 9'd120;
+        defparam btm2.IS_TOP  = 0;
 
-    // Pair 3 (red), X=220, seed 203
+    // Pair 3 (stagger further left)
     object top3 (Resetn, CLOCK_50, gnt_top3, faster, slower, req_top3, x_top3, y_top3, color_top3, write_top3);
         defparam top3.nX      = nX;
         defparam top3.nY      = nY;
-        defparam top3.X_INIT  = 10'd220;
         defparam top3.COLOR   = 9'b111_000_000;
-        defparam top3.IS_TOP  = 1;
-        defparam top3.SEED    = 8'd203;
-        defparam top3.GAP     = 9'd120;
+        defparam top3.X_INIT  = 10'd220;
+        defparam top3.Y_INIT  = 9'd0;
         defparam top3.MIN_TOP = 9'd20;
         defparam top3.MIN_BTM = 9'd20;
+        defparam top3.GAP     = 9'd120;
+        defparam top3.IS_TOP  = 1;
 
     object btm3 (Resetn, CLOCK_50, gnt_btm3, faster, slower, req_btm3, x_btm3, y_btm3, color_btm3, write_btm3);
         defparam btm3.nX      = nX;
         defparam btm3.nY      = nY;
-        defparam btm3.X_INIT  = 10'd220;
         defparam btm3.COLOR   = 9'b111_000_000;
-        defparam btm3.IS_TOP  = 0;
-        defparam btm3.SEED    = 8'd203; // same seed as top3
-        defparam btm3.GAP     = 9'd120;
+        defparam btm3.X_INIT  = 10'd220;
+        defparam btm3.Y_INIT  = 9'd0;
         defparam btm3.MIN_TOP = 9'd20;
         defparam btm3.MIN_BTM = 9'd20;
+        defparam btm3.GAP     = 9'd120;
+        defparam btm3.IS_TOP  = 0;
 
     // VGA
     vga_adapter VGA (
-        .resetn (KEY[0]),
-        .clock  (CLOCK_50),
-        .color  (MUX_color),
-        .x      (MUX_x),
-        .y      (MUX_y),
-        .write  (MUX_write),
-        .VGA_R  (VGA_R),
-        .VGA_G  (VGA_G),
-        .VGA_B  (VGA_B),
-        .VGA_HS (VGA_HS),
-        .VGA_VS (VGA_VS),
-        .VGA_BLANK_N (VGA_BLANK_N),
-        .VGA_SYNC_N  (VGA_SYNC_N),
-        .VGA_CLK     (VGA_CLK)
+        .resetn(KEY[0]),
+        .clock(CLOCK_50),
+        .color(MUX_color),
+        .x(MUX_x),
+        .y(MUX_y),
+        .write(MUX_write),
+        .VGA_R(VGA_R),
+        .VGA_G(VGA_G),
+        .VGA_B(VGA_B),
+        .VGA_HS(VGA_HS),
+        .VGA_VS(VGA_VS),
+        .VGA_BLANK_N(VGA_BLANK_N),
+        .VGA_SYNC_N(VGA_SYNC_N),
+        .VGA_CLK(VGA_CLK)
     );
     defparam VGA.BACKGROUND_IMAGE = "./MIF/scenery.mif";
 
-    assign LEDR = 10'b0;
+    assign LEDR[9:0] = 10'b0;
 endmodule
 
 
-// -------------------- Up/Down counter --------------------
+// ----------------- Counters -----------------
 module UpDn_count (R, Clock, Resetn, E, L, UpDn, Q);
     parameter n = 10;
     input  wire [n-1:0] R;
     input  wire         Clock, Resetn, E, L, UpDn;
     output reg  [n-1:0] Q;
-
-    always @(posedge Clock) begin
-        if (!Resetn)      Q <= {n{1'b0}};
-        else if (L)       Q <= R;
-        else if (E)       Q <= (UpDn ? (Q + 1'b1) : (Q - 1'b1));
-    end
+    always @(posedge Clock)
+        if (!Resetn)        Q <= {n{1'b0}};
+        else if (L)         Q <= R;
+        else if (E)         Q <= UpDn ? (Q + 1'b1) : (Q - 1'b1);
 endmodule
 
-// -------------------- Up counter --------------------
 module Up_count (Clock, Resetn, Q);
     parameter n = 20;
     input  wire Clock, Resetn;
     output reg  [n-1:0] Q;
-    always @(posedge Clock) begin
+    always @(posedge Clock)
         if (!Resetn) Q <= {n{1'b0}};
         else         Q <= Q + 1'b1;
-    end
 endmodule
 
 
-// ===================== OBJECT with random gap =====================
+// ----------------- Object (with exact-gap random wrap) -----------------
 module object (Resetn, Clock, gnt, faster, slower, req,
                VGA_x, VGA_y, VGA_color, VGA_write);
 
-    // geometry / screen
     parameter nX = 10;
     parameter nY = 9;
+
     parameter XSCREEN = 640;
     parameter YSCREEN = 480;
 
-    // pillar width; height is dynamic now
-    parameter XDIM = 50;
+    parameter XDIM = 50, YDIM = 200; // YDIM unused once YDIMr active (kept for compat)
 
-    // fixed initial X and top/btm flag
     parameter X_INIT = 10'd620;
-    parameter IS_TOP = 1;           // 1=top (anchored at y=0), 0=bottom (anchored at bottom)
+    parameter Y_INIT = 9'd0;
 
-    // colors
-    parameter COLOR = 9'b111_111_111;
-    parameter ALT   = 9'b000_000_000;
+    parameter COLOR  = 9'b111_000_000;
+    parameter ALT    = 9'b000_000_000;
 
-    // speed controls (unchanged)
     parameter KK = 21;
     parameter MM = 8;
 
-    // gap + bounds
-    parameter GAP     = 9'd120;     // vertical opening size (constant for all wraps)
-    parameter MIN_TOP = 9'd20;      // minimum height for top pillar
-    parameter MIN_BTM = 9'd20;      // minimum height for bottom pillar
-
-    // LFSR seed (per pair): top and bottom of the same pair must share SEED
+    // gap controls (9-bit params), and which half we are
+    parameter MIN_TOP = 9'd20;
+    parameter MIN_BTM = 9'd20;
+    parameter GAP     = 9'd120;
+    parameter IS_TOP  = 1;      // 1 = top, 0 = bottom
     parameter SEED    = 8'd67;
 
-    // FSM states (unchanged)
-    parameter A = 4'b0000, B = 4'b0001, C = 4'b0010, D = 4'b0011,
-              E = 4'b0100, F = 4'b0101, G = 4'b0110, H = 4'b0111,
-              I = 4'b1000, J = 4'b1001, K = 4'b1010, L = 4'b1011;
-
-    input  wire Resetn, Clock;
-    input  wire gnt, faster, slower;
+    input  wire Resetn, Clock, gnt, faster, slower;
     output reg  req;
     output wire [nX-1:0] VGA_x;
     output wire [nY-1:0] VGA_y;
     output wire [8:0]    VGA_color;
     output wire          VGA_write;
 
-    // position & raster
-    wire [nX-1:0] X_RIGHT = XSCREEN[nX-1:0] - XDIM[nX-1:0];
-
-    wire [nX-1:0] X, XC;
-    wire [nY-1:0] Y, YC;
-    reg           Lx, Ly, Ex, Lxc, Lyc, Exc, Eyc; // controls
-    reg           erase, write;
+    // Position/counters
+    wire [nX-1:0] X, XC, X0;
+    wire [nY-1:0] Y, YC, Y0;
+    reg           Lx, Ly, Ex, Lxc, Lyc, Exc, Eyc;
+    reg           erase, Tdir, write;
     reg  [3:0]    y_Q, Y_D;
 
-    // dynamic height and base Y (for top: base=0; for bottom: base=YSCREEN-YDIMr)
-    reg  [nY-1:0] YDIMr;     // current pillar height
-    reg  [nY-1:0] YBASEr;    // current base Y (0 for top, else bottom anchor)
-
-    // slow counter + mask (unchanged)
-    wire [KK-1:0] slow;
-    reg  [MM-1:0] mask;
+    // Speed mask FSM (kept but faster/slower tied low)
     reg  [2:0]    ys_Q, Ys_D;
     reg           sll, srl;
-    wire          sync;
+    reg  [MM-1:0] mask;
 
-    // -------- Random LFSR (advance only on wrap) --------
-    reg  [7:0] lfsr;
-    wire       lfsr_next = lfsr[7] ^ lfsr[5] ^ lfsr[4] ^ lfsr[3];
+    // Random + variable height/base (registered)
+    reg  [7:0]    lfsr;
+    wire          lfsr_fb = lfsr[7] ^ lfsr[5] ^ lfsr[4] ^ lfsr[3];
+    reg  [nY-1:0] YDIMr;     // active height of this pillar
+    reg  [nY-1:0] YBASEr;    // base Y of this pillar (0 for top, 480 - YDIMr for bottom)
 
-    // detect wrap in move state
-    wire wrap_cycle = (y_Q == I) && (X == {nX{1'b0}});
+    // Do all math in 10 bits
+    localparam [9:0] YSCR10 = 10'd480;
+    wire [8:0]       color  = COLOR;
 
-    // map LFSR to a valid gap center range
-    // ymin = MIN_TOP + GAP/2
-    // ymax = YSCREEN - (MIN_BTM + GAP/2)
-    // center = ymin + (lfsr * (ymax - ymin)) >> 8
-    // top_height  = center - GAP/2
-    // btm_height  = YSCREEN - (center + GAP/2)
-    // clamp via MIN_*
-
-    wire [9:0] half_gap = {1'b0, GAP} >> 1; // 10-bit safe
-    wire [9:0] ymin10   = {1'b0, MIN_TOP} + half_gap;
-    wire [9:0] ymax10   = 10'd480 - ({1'b0, MIN_BTM} + half_gap);
-    wire [9:0] range10  = (ymax10 > ymin10) ? (ymax10 - ymin10) : 10'd0;
-
-    wire [17:0] mult    = lfsr * range10;           // 8x10 -> 18 bits
-    wire [9:0]  scaled  = mult[17:8];               // >> 8
-    wire [9:0]  ycenter = ymin10 + scaled;          // 10-bit center
-
-    wire [9:0]  top_h10 = (ycenter > half_gap) ? (ycenter - half_gap) : 10'd0;
-    wire [9:0]  btm_h10 = (10'd480 > (ycenter + half_gap)) ? (10'd480 - (ycenter + half_gap)) : 10'd0;
-
-    // clamp each side to its minimum
-    wire [9:0] top_h_clamp = (top_h10  < {1'b0, MIN_TOP}) ? {1'b0, MIN_TOP} : top_h10;
-    wire [9:0] btm_h_clamp = (btm_h10  < {1'b0, MIN_BTM}) ? {1'b0, MIN_BTM} : btm_h10;
-
-    // next height/base computed from LFSR
-    wire [nY-1:0] next_YDIMr  = IS_TOP ? top_h_clamp[nY-1:0] : btm_h_clamp[nY-1:0];
-    wire [nY-1:0] next_YBASEr = IS_TOP ? {nY{1'b0}} : (10'd480 - next_YDIMr);
-
-    // choose X load value: always respawn at right edge
-    wire [nX-1:0] X_RLOAD = wrap_cycle ? X_RIGHT : X_INIT[nX-1:0];
-
-    // choose Y load value from current base
-    wire [nY-1:0] Y0_dyn = YBASEr;
-
-    // counters
-    UpDn_count U2 (X_RLOAD, Clock, Resetn, Ex, Lx, 1'b0, X);   // X moves left; load on Lx
-        defparam U2.n = nX;
-
-    UpDn_count U1 (Y0_dyn,  Clock, Resetn, 1'b0, Ly, 1'b1, Y); // Y fixed; load on Ly
-        defparam U1.n = nY;
-
-    UpDn_count U3 ({nX{1'b0}}, Clock, Resetn, Exc, Lxc, 1'b1, XC); // horizontal raster
-        defparam U3.n = nX;
-
-    UpDn_count U4 ({nY{1'b0}}, Clock, Resetn, Eyc, Lyc, 1'b1, YC); // vertical raster
-        defparam U4.n = nY;
-
-    Up_count    U6 (Clock, Resetn, slow); // speed
+    // Slow counter for movement timing
+    wire [KK-1:0] slow;
+    Up_count U6 (Clock, Resetn, slow);
         defparam U6.n = KK;
 
-    assign sync = ((slow | (mask << (KK-MM))) == {KK{1'b1}});
+    // sync timing: default scheme from your code
+    wire sync = ((slow | (mask << (KK-MM))) == {KK{1'b1}});
 
-    // pixel outputs
+    // VGA outputs
     assign VGA_x     = X + XC;
     assign VGA_y     = Y + YC;
-    assign VGA_color = (erase == 1'b0) ? COLOR : ALT;
+    assign VGA_color = (erase == 1'b0) ? color : ALT;
     assign VGA_write = write;
 
-    // ---------------- Draw/Erase/Move FSM (unchanged sequencing) ----------------
+    // X reload logic: on wrap, load right edge; at reset use X_INIT
+    wire [nX-1:0] X_RIGHT  = XSCREEN[nX-1:0] - XDIM[nX-1:0];
+    wire          wrap_now = (y_Q == 4'b1000 /* I */) && (X == {nX{1'b0}});
+    wire [nX-1:0] X_RLOAD  = wrap_now ? X_RIGHT : X_INIT[nX-1:0];
+
+    // Y0 is dynamic: always load from current YBASEr register
+    assign X0 = X_RLOAD;
+    assign Y0 = YBASEr;
+
+    // Counters: X moves left (count down via Ex), Y stays fixed (we reload Ly on reset/wrap)
+    UpDn_count U2 (X0, Clock, Resetn, Ex, Lx, 1'b0, X);
+        defparam U2.n = nX;
+
+    UpDn_count U1 (Y0, Clock, Resetn, 1'b0, Ly, 1'b1, Y);
+        defparam U1.n = nY;
+
+    // Pixel scan counters (XC/YC): XC up to XDIM, YC up to YDIMr
+    UpDn_count U3 ({nX{1'b0}}, Clock, Resetn, Exc, Lxc, 1'b1, XC);
+        defparam U3.n = nX;
+
+    UpDn_count U4 ({nY{1'b0}}, Clock, Resetn, Eyc, Lyc, 1'b1, YC);
+        defparam U4.n = nY;
+
+    // ------------- FSM (unchanged flow; only YC limits use YDIMr) -------------
     always @(*) begin
         case (y_Q)
-            A: Y_D = B;
-            B: Y_D = (XC != (XDIM-1)) ? B : C;
-            C: Y_D = (YC != (YDIMr-1)) ? B : D;
-            D: Y_D = (!sync) ? D : E;
-            E: Y_D = (!gnt)  ? E : F;
-            F: Y_D = (XC != (XDIM-1)) ? F : G;
-            G: Y_D = (YC != (YDIMr-1)) ? F : H;
-            H: Y_D = I;
-            I: Y_D = J;
-            J: Y_D = (XC != (XDIM-1)) ? J : K;
-            K: Y_D = (YC != (YDIMr-1)) ? J : L;
-            L: Y_D = D;
-            default: Y_D = A;
+            4'b0000: Y_D = 4'b0001; // A->B
+            4'b0001: Y_D = (XC != (XDIM-1)) ? 4'b0001 : 4'b0010; // B
+            4'b0010: Y_D = (YC != (YDIMr-1)) ? 4'b0001 : 4'b0011; // C (uses YDIMr)
+            4'b0011: Y_D = (!sync) ? 4'b0011 : 4'b0100;           // D
+            4'b0100: Y_D = (!gnt)  ? 4'b0100 : 4'b0101;           // E
+            4'b0101: Y_D = (XC != (XDIM-1)) ? 4'b0101 : 4'b0110;  // F
+            4'b0110: Y_D = (YC != (YDIMr-1)) ? 4'b0101 : 4'b0111; // G (uses YDIMr)
+            4'b0111: Y_D = 4'b1000;                               // H
+            4'b1000: Y_D = 4'b1001;                               // I
+            4'b1001: Y_D = (XC != (XDIM-1)) ? 4'b1001 : 4'b1010;  // J
+            4'b1010: Y_D = (YC != (YDIMr-1)) ? 4'b1001 : 4'b1011; // K (uses YDIMr)
+            4'b1011: Y_D = 4'b0011;                               // L -> D
+            default: Y_D = 4'b0000;
         endcase
     end
 
     always @(*) begin
         // defaults
-        Lx=0; Ly=0; Lxc=0; Lyc=0; Exc=0; Eyc=0;
-        erase=0; write=0; Ex=0; req=0;
+        Lx=1'b0; Ly=1'b0; Lxc=1'b0; Lyc=1'b0; Exc=1'b0; Eyc=1'b0;
+        erase=1'b0; write=1'b0; Ex=1'b0; Tdir=1'b0; req=1'b0;
 
         case (y_Q)
-            A: begin Lx=1; Ly=1; Lxc=1; Lyc=1; end
-
-            // draw
-            B: begin Exc=1; write=1; end
-            C: begin Lxc=1; Eyc=1; end
-
-            // wait & request
-            D: Lyc=1;
-            E: req=1;
-
-            // erase
-            F: begin req=1; Exc=1; erase=1; write=1; end
-            G: begin req=1; Lxc=1; Eyc=1; end
-
-            // compute next Y base at wrap; also reload Y when wrapping
-            H: begin
-                req=1;
-                Lyc=1;
-            end
-
-            // move X left; reload at left edge; also reload Y at wrap
-            I: begin
-                req=1;
-                Ex=1;
-                Lx = (X == {nX{1'b0}});
-                Ly = (X == {nX{1'b0}});
-            end
-
-            // draw
-            J: begin req=1; Exc=1; write=1; end
-            K: begin req=1; Lxc=1; Eyc=1; end
-            L: Lyc=1;
+            4'b0000: begin Lx=1'b1; Ly=1'b1; Lxc=1'b1; Lyc=1'b1; end // A init
+            4'b0001: begin Exc=1'b1; write=1'b1; end                 // B draw scan X
+            4'b0010: begin Lxc=1'b1; Eyc=1'b1; end                   // C next scan row
+            4'b0011: Lyc=1'b1;                                       // D reload YC
+            4'b0100: req=1'b1;                                       // E request
+            4'b0101: begin req=1'b1; Exc=1'b1; erase=1'b1; write=1'b1; end // F erase scan X
+            4'b0110: begin req=1'b1; Lxc=1'b1; Eyc=1'b1; end               // G
+            4'b0111: begin req=1'b1; Lyc=1'b1; Tdir = (Y == {nY{1'b0}}) || (Y == (YSCREEN[nY-1:0]-YDIMr)); end // H
+            4'b1000: begin req=1'b1; Ex=1'b1; Lx = (X == {nX{1'b0}}); Ly = (X == {nX{1'b0}}); end // I move + reload at wrap
+            4'b1001: begin req=1'b1; Exc=1'b1; write=1'b1; end       // J draw scan X
+            4'b1010: begin req=1'b1; Lxc=1'b1; Eyc=1'b1; end         // K
+            4'b1011: Lyc=1'b1;                                       // L
         endcase
     end
 
-    // FSM FFs
-    always @(posedge Clock) begin
-        if (!Resetn) y_Q <= A;
+    always @(posedge Clock)
+        if (!Resetn) y_Q <= 4'b0000;
         else         y_Q <= Y_D;
-    end
 
-    // speed mask FSM (unchanged)
+    // Speed-mask FSM kept but inactive (faster/slower=0)
     parameter As = 3'b000, Bs = 3'b001, Cs = 3'b010, Ds = 3'b011, Es = 3'b100;
-
     always @(*) begin
         case (ys_Q)
-            As: if (faster) Ys_D = Bs;
-                else if (slower) Ys_D = Ds;
-                else Ys_D = As;
+            As: Ys_D = As;
             Bs: Ys_D = Cs;
-            Cs: Ys_D = (faster) ? Cs : As;
+            Cs: Ys_D = As;
             Ds: Ys_D = Es;
-            Es: Ys_D = (slower) ? Es : As;
+            Es: Ys_D = As;
             default: Ys_D = As;
         endcase
     end
-
-    always @(*) begin
-        sll=0; srl=0;
-        case (ys_Q)
-            As: ;
-            Bs: srl=1;
-            Cs: ;
-            Ds: sll=1;
-            Es: ;
-        endcase
-    end
-
+    always @(*) begin sll=1'b0; srl=1'b0; if (ys_Q==Bs) srl=1'b1; else if (ys_Q==Ds) sll=1'b1; end
     always @(posedge Clock) begin
-        if (!Resetn) ys_Q <= As;
-        else         ys_Q <= Ys_D;
+        if (!Resetn) begin mask <= {MM{1'b0}}; ys_Q <= As; end
+        else begin
+            ys_Q <= Ys_D;
+            if (srl) begin mask[MM-2:0] <= mask[MM-1:1]; mask[MM-1] <= 1'b1; end
+            else if (sll) begin mask[MM-1:1] <= mask[MM-2:0]; mask[0] <= 1'b0; end
+        end
     end
 
-    always @(posedge Clock) begin
-        if (!Resetn)       mask <= {MM{1'b0}};
-        else if (srl)      mask <= {1'b1, mask[MM-1:1]};
-        else if (sll)      mask <= {mask[MM-2:0], 1'b0};
-    end
+    // -------- Random exact-gap logic (updates ONLY on wrap) --------
+    // Compute a legal y-center range so that:
+    // top height >= MIN_TOP, bottom height >= MIN_BTM, opening width exactly GAP.
+    wire [9:0] HALF_GAP = {1'b0, GAP} >> 1;
+    wire [9:0] ymin10   = {1'b0, MIN_TOP} + HALF_GAP;
+    wire [9:0] ymax10   = YSCR10 - ({1'b0, MIN_BTM} + HALF_GAP);
+    wire [9:0] range10  = (ymax10 > ymin10) ? (ymax10 - ymin10) : 10'd0;
 
-    // ---------- LFSR & dynamic height/base registers ----------
+    // scale 8-bit LFSR into [0..range10]
+    wire [17:0] mult    = {10'd0, lfsr} * range10;   // 8x10 -> 18
+    wire [9:0]  offs10  = mult[17:8];
+    wire [9:0]  ycenter = ymin10 + offs10;
+
+    // exact top/bottom heights so that top + GAP + bottom = 480
+    wire [9:0] top_h10  = (ycenter > HALF_GAP)               ? (ycenter - HALF_GAP) : 10'd0;
+    wire [9:0] btm_h10  = (YSCR10 > (ycenter + HALF_GAP))    ? (YSCR10 - (ycenter + HALF_GAP)) : 10'd0;
+
+    wire [nY-1:0] next_YDIMr  = IS_TOP ? top_h10[nY-1:0] : btm_h10[nY-1:0];
+    wire [nY-1:0] next_YBASEr = IS_TOP ? {nY{1'b0}}      : (YSCR10 - { { (10-nY){1'b0} }, next_YDIMr });
+
+    // init to centered legal opening; update on wrap
     always @(posedge Clock) begin
         if (!Resetn) begin
             lfsr   <= SEED[7:0];
-            // initialize height/base to a valid configuration
-            YDIMr  <= IS_TOP ? (MIN_TOP + (GAP>>1)) : (YSCREEN[nY-1:0] - (MIN_BTM + (GAP>>1)));
-            YBASEr <= IS_TOP ? {nY{1'b0}} : (YSCREEN[nY-1:0] - YDIMr);
-        end else begin
-            if (wrap_cycle) begin
-                // advance RNG and latch new height & base
-                lfsr   <= {lfsr[6:0], lfsr_next};
-                YDIMr  <= next_YDIMr;
-                YBASEr <= next_YBASEr;
-            end
+            YDIMr  <= IS_TOP
+                      ? ( ({1'b0,MIN_TOP} + HALF_GAP) [nY-1:0] )
+                      : ( (YSCR10 - ({1'b0,MIN_BTM} + HALF_GAP)) [nY-1:0] );
+            YBASEr <= IS_TOP ? {nY{1'b0}} : (YSCR10 - { {(10-nY){1'b0}}, YDIMr });
+        end else if (wrap_now) begin
+            lfsr   <= {lfsr[6:0], lfsr_fb};
+            YDIMr  <= next_YDIMr;
+            YBASEr <= next_YBASEr;
         end
     end
 
