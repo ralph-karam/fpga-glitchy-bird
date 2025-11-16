@@ -26,9 +26,6 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     // specify the number of bits needed for a Y (row) pixel coordinate on the VGA display
     parameter nY = 9;
 
-	 parameter XSCREEN = 640;
-    parameter YSCREEN = 480;
-
     // state codes for FSM that choses which object to draw at a given time
     parameter A = 3'b000, B = 3'b001, C = 3'b010, D = 3'b011, E = 3'b100, F = 3'b101, G = 3'b110;
 
@@ -74,7 +71,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 	//-------------------------------------
 	
 	parameter [nY-1:0] GAP = 9'd80;
-	parameter [nY-1:0] YSCREEM = 9'd480;
+	parameter [nY-1:0] YSCREEN = 9'd480;
 	parameter [nY-1:0] MIN_H = 9'd100;
 	parameter [nY-1:0] RANGE_H = 9'd201;
 	
@@ -260,7 +257,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     defparam btm3.nY     = nY;
     defparam btm3.X_INIT = 10'd220;
     // defparam btm3.Y_INIT = 9'd280;   // no longer needed
-    defparam btm3.COLOR  = 9'b11;
+    defparam btm3.COLOR  = 9'b111_000_000;
 	 
 	 
 	 
@@ -320,8 +317,8 @@ module Up_count (Clock, Resetn, Q);
 endmodule
 
 // implements a moving colored object
-module object (Resetn, Clock, gnt, req, Y_init, Y_dim, wrap,  
-               VGA_x, VGA_y, VGA_color, VGA_write);
+module object (Resetn, Clock, gnt, req, Y_init, Y_dim,  
+               VGA_x, VGA_y, VGA_color, VGA_write, wrap);
 
     // specify the number of bits needed for an X (column) pixel coordinate on the VGA display
     parameter nX = 10;
@@ -350,17 +347,6 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim, wrap,
     parameter A = 4'b0000, B = 4'b0001, C = 4'b0010, D = 4'b0011,
               E = 4'b0100, F = 4'b0101, G = 4'b0110, H = 4'b0111,
               I = 4'b1000, J = 4'b1001, K = 4'b1010, L = 4'b1011;
-
-	
-	wire [nX-1:0] X_RIGHT = XSCREEN[nX-1:0] - XDIM[nX-1:0];
-
-	// true only when we're in the move state and about to wrap
-	wire wrap_load = (y_Q == I) && (X == 'd0);
-
-	// value that UpDn_count will load into X on Lx
-	wire [nX-1:0] X_RLOAD = wrap_load ? X_RIGHT : X_INIT;
-	
-	assign wrap = wrap_load;
 	
 
    input wire Resetn, Clock;
@@ -376,7 +362,7 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim, wrap,
 	output wire wrap;
 
 	wire [nX-1:0] X, XC, X0;    // used to traverse the object's width
-	wire [nY-1:0] Y, YC, Y0;    // used to traverse the object's height
+	wire [nY-1:0] YC, Y_base;    // used to traverse the object's height
 	wire [8:0] color = COLOR;
    wire [KK-1:0] slow;         // used to synchronize the object's speed using a counter
 	 
@@ -388,9 +374,19 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim, wrap,
    reg [3:0] y_Q, Y_D; // FSM for controlling drawing/erasing of the object
    reg write;          // used to write to a pixel
 
+		
+	wire [nX-1:0] X_RIGHT = XSCREEN[nX-1:0] - XDIM[nX-1:0];
+
+	// true only when we're in the move state and about to wrap
+	wire wrap_load = (y_Q == I) && (X == 'd0);
+
+	// value that UpDn_count will load into X on Lx
+	wire [nX-1:0] X_RLOAD = wrap_load ? X_RIGHT : X_INIT;
+	
+	assign wrap = wrap_load;
 
    assign X0 = X_INIT;
-   assign Y0 = Y_init;
+   assign Y_base = Y_init;
 
     
 	UpDn_count U2 (X_RLOAD, Clock, Resetn, Ex, Lx, 1'b0, X);    // object's column location // X moves left only: count down and wrap via Lx
@@ -413,7 +409,7 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim, wrap,
 
 
    assign VGA_x = X + XC;                          // pixel x coordinate
-    assign VGA_y = Y + YC;                          // pixel y coordinate
+    assign VGA_y = Y_base + YC;                          // pixel y coordinate
     assign VGA_color = erase == 0 ? color : ALT;    // pixel color to draw/erase
     assign VGA_write = write;                       // pixel write control
 
@@ -467,7 +463,7 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim, wrap,
             F:  begin req = 1'b1; Exc = 1'b1; erase = 1'b1; write = 1'b1; end
             G:  begin req = 1'b1; Lxc = 1'b1; Eyc = 1'b1; end
 
-            H:  begin req = 1'b1; Lyc = 1'b1; Tdir = (Y == 'd0) || (Y == YSCREEN-Y_dim); end
+            H: begin req = 1'b1; Lyc = 1'b1; end
 
             // move the object
             I:  begin req = 1'b1; Ex = 1'b1; Lx = (X == 'd0); end
@@ -488,4 +484,3 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim, wrap,
 
     
 endmodule
-
