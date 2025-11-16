@@ -392,8 +392,6 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim,
 	UpDn_count U2 (X_RLOAD, Clock, Resetn, Ex, Lx, 1'b0, X);    // object's column location // X moves left only: count down and wrap via Lx
         defparam U2.n = nX;
 
-   UpDn_count U1 (Y0, Clock, Resetn, 1'b0, Ly, 1'b1, Y);      // object's row location // Y stays fixed (load once) no enable 
-        defparam U1.n = nY;
 	
 
    UpDn_count U3 ({nX{1'd0}}, Clock, Resetn, Exc, Lxc, 1'b1, XC); // object column counter
