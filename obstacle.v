@@ -50,6 +50,70 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 
     assign Resetn = KEY[0];
 
+
+		//-------------------------------------------------------
+	
+	parameter [8:0] GAP = 9'd80;
+	parameter [8:0] YSCREEN = 9'd480;
+	parameter [8:0] MIN_H = 9'd100;
+	parameter [8:0] RANGE_H = 9'd201;
+	
+	wire [7:0] rnd;
+	
+	random U1(~Resetn, CLOCK_50, rnd);
+	
+	wire [8:0] rand_mod = rnd % RANGE_H; 	//0 to 200
+	wire [8:0] rand_h = MIN_H + rand_mod;	//100 to 300
+	
+	reg [8:0] top_h1, btm_h1, btm_y1;
+	reg [8:0] top_h2, btm_h2, btm_y2;
+	reg [8:0] top_h3, btm_h3, btm_y3;
+	
+	wire wrap_top1, wrap_top2, wrap_top3;
+	wire wrap_btm1, wrap_btm2, wrap_btm3;		//unused, here to avoid floating ports
+	
+	
+	 // update pillar heights when the top wraps
+    always @(posedge CLOCK_50 or negedge Resetn) begin
+        if (!Resetn) begin
+            // initial heights
+            top_h1 <= 9'd200;
+            top_h2 <= 9'd150;
+            top_h3 <= 9'd220;
+
+            btm_h1 <= (YSCREEN - GAP) - top_h1;
+            btm_y1 <= top_h1 + GAP;
+
+            btm_h2 <= (YSCREEN - GAP) - top_h2;
+            btm_y2 <= top_h2 + GAP;
+
+            btm_h3 <= (YSCREEN - GAP) - top_h3;
+            btm_y3 <= top_h3 + GAP;
+        end
+        else begin
+            // when a top pillar wraps picks a new height and recomputes the bottom pillar
+            if (wrap_top1) begin
+                top_h1 <= rand_h;
+                btm_h1 <= (YSCREEN - GAP) - rand_h;
+                btm_y1 <= rand_h + GAP;
+            end
+
+            if (wrap_top2) begin
+                top_h2 <= rand_h;
+                btm_h2 <= (YSCREEN - GAP) - rand_h;
+                btm_y2 <= rand_h + GAP;
+            end
+
+            if (wrap_top3) begin
+                top_h3 <= rand_h;
+                btm_h3 <= (YSCREEN - GAP) - rand_h;
+                btm_y3 <= rand_h + GAP;
+            end
+        end
+    end
+	
+	//-------------------------------------
+
     always @ (*)
         case (y_Q)
 			A:  if (req_top1) Y_D = B;          // see if object 1 wants to be drawn
