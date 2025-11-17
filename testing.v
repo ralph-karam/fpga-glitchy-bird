@@ -1,4 +1,3 @@
-
 `default_nettype none
 
 module random #(parameter seedInitial = 8'd67) (reset, Clock, seed);
@@ -21,10 +20,6 @@ endmodule
 module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 				VGA_HS, VGA_VS, VGA_BLANK_N, VGA_SYNC_N, VGA_CLK);
 	
-    // specify the number of bits needed for an X (column) pixel coordinate on the VGA display
-    parameter nX = 10;
-    // specify the number of bits needed for a Y (row) pixel coordinate on the VGA display
-    parameter nY = 9;
 
     // state codes for FSM that choses which object to draw at a given time
     parameter A = 3'b000, B = 3'b001, C = 3'b010, D = 3'b011, E = 3'b100, F = 3'b101, G = 3'b110;
@@ -42,8 +37,8 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 	output wire VGA_SYNC_N;
 	output wire VGA_CLK;	
 
-	wire [nX-1:0] x_top1, x_btm1, x_top2, x_btm2, x_top3, x_btm3;
-	wire [nY-1:0] y_top1, y_btm1, y_top2, y_btm2, y_top3, y_btm3;
+	wire [9:0] x_top1, x_btm1, x_top2, x_btm2, x_top3, x_btm3;
+	wire [8:0] y_top1, y_btm1, y_top2, y_btm2, y_top3, y_btm3;
 	
 	wire [8:0] color_top1, color_top2, color_top3;
 	wire [8:0] color_btm1, color_btm2, color_btm3;
@@ -57,8 +52,8 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     reg gnt_top1, gnt_top2, gnt_top3;
 	reg gnt_btm1, gnt_btm2, gnt_btm3;
 	
-	reg [nX-1:0] MUX_x;
-	reg [nY-1:0] MUX_y;
+	reg [9:0] MUX_x;
+	reg [8:0] MUX_y;
 	reg [8:0] MUX_color;
     reg MUX_write;
 	reg [2:0] y_Q, Y_D;
@@ -71,8 +66,8 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 	
 	reg started = 1'b0;
 	reg clearing = 1'b0;
-	reg [nX-1:0] clear_x = {nX{1'b0}};
-	reg [nY-1:0] clear_y = {nY{1'b0}};
+	reg [9:0] clear_x = {nX{1'b0}};
+	reg [8:0] clear_y = {nY{1'b0}};
 
 	// detect first press of KEY0 (active-low reset)
 	always @(posedge CLOCK_50 or negedge Resetn) begin
@@ -103,21 +98,21 @@ end
 	
 	//-------------------------------------------------------
 	
-	parameter [nY-1:0] GAP = 9'd80;
-	parameter [nY-1:0] YSCREEN = 9'd480;
-	parameter [nY-1:0] MIN_H = 9'd100;
-	parameter [nY-1:0] RANGE_H = 9'd201;
+	parameter [8:0] GAP = 9'd80;
+	parameter [8:0] YSCREEN = 9'd480;
+	parameter [8:0] MIN_H = 9'd100;
+	parameter [8:0] RANGE_H = 9'd201;
 	
 	wire [7:0] rnd;
 	
 	random U1(~Resetn, CLOCK_50, rnd);
 	
-	wire [nY-1:0] rand_mod = rnd % RANGE_H; 	//0 to 200
-	wire [nY-1:0] rand_h = MIN_H + rand_mod;	//100 to 300
+	wire [8:0] rand_mod = rnd % RANGE_H; 	//0 to 200
+	wire [8:0] rand_h = MIN_H + rand_mod;	//100 to 300
 	
-	reg [nY-1:0] top_h1, btm_h1, btm_y1;
-	reg [nY-1:0] top_h2, btm_h2, btm_y2;
-	reg [nY-1:0] top_h3, btm_h3, btm_y3;
+	reg [8:0] top_h1, btm_h1, btm_y1;
+	reg [8:0] top_h2, btm_h2, btm_y2;
+	reg [8:0] top_h3, btm_h3, btm_y3;
 	
 	wire wrap_top1, wrap_top2, wrap_top3;
 	wire wrap_btm1, wrap_btm2, wrap_btm3;		//unused, here to avoid floating ports
@@ -395,17 +390,17 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim,
    input wire Resetn, Clock;
    input wire gnt;  // set to 1 when this object is selected for VGA display
    output reg req; // object sets this request to 1 when it wants to be displayed
-	output wire [nX-1:0] VGA_x;  // pixel x coordinate output
-	output wire [nY-1:0] VGA_y;  // pixel y coordinate ouput
+	output wire [9:0] VGA_x;  // pixel x coordinate output
+	output wire [8:0] VGA_y;  // pixel y coordinate ouput
 	output wire [8:0] VGA_color; // pixel color output
    output wire VGA_write;       // control output to write a pixel
 	
-	input wire [nY-1:0] Y_init;
-	input wire [nY-1:0] Y_dim;
+	input wire [8:0] Y_init;
+	input wire [8:0] Y_dim;
 	output wire wrap;
 
-	wire [nX-1:0] X, XC, X0;    // used to traverse the object's width
-	wire [nY-1:0] YC, Y_base;    // used to traverse the object's height
+	wire [9:0] X, XC, X0;    // used to traverse the object's width
+	wire [8:0] YC, Y_base;    // used to traverse the object's height
 	wire [8:0] color = COLOR;
    wire [KK-1:0] slow;         // used to synchronize the object's speed using a counter
 	 
@@ -418,13 +413,13 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim,
    reg write;          // used to write to a pixel
 
 		
-	wire [nX-1:0] X_RIGHT = XSCREEN[nX-1:0] - XDIM[nX-1:0];
+	wire [9:0] X_RIGHT = XSCREEN[9:0] - XDIM[9:0];
 
 	// true only when we're in the move state and about to wrap
 	wire wrap_load = (y_Q == I) && (X == 'd0);
 
 	// value that UpDn_count will load into X on Lx
-	wire [nX-1:0] X_RLOAD = wrap_load ? X_RIGHT : X_INIT;
+	wire [9:0] X_RLOAD = wrap_load ? X_RIGHT : X_INIT;
 	
 	assign wrap = wrap_load;
 
