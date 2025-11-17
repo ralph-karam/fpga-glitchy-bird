@@ -4,9 +4,7 @@
 module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 				VGA_HS, VGA_VS, VGA_BLANK_N, VGA_SYNC_N, VGA_CLK);
 	
-    // specify the number of bits needed for an X (column) pixel coordinate on the VGA display
     parameter nX = 10;
-    // specify the number of bits needed for a Y (row) pixel coordinate on the VGA display
     parameter nY = 9;
 
     // state codes for FSM that choses which object to draw at a given time
