@@ -141,69 +141,108 @@ end
 	
 	//-------------------------------------
 	
-    always @ (*)
-        case (y_Q)
-			A:  if (req_top1) Y_D = B;          // see if object 1 wants to be drawn
-			else if (req_btm1) Y_D = C;     	// see if object 2 wants to be drawn
-			else if (req_top2) Y_D = D;
-			else if (req_btm2) Y_D = E;
-			else if (req_top3) Y_D = F;
-			else if (req_btm3) Y_D = G;
-                else Y_D = A;
-					 
-			B:  if (req_top1) Y_D = B;          // wait for object 1 drawing cycle
-                else Y_D = A;
-			C:  if (req_btm1) Y_D = C;          // wait for object 2 drawing cycle
-                else Y_D = A;
-					 
-			D:  if (req_top2) Y_D = D;          // wait for object 3 drawing cycle
-                else Y_D = A;
-			E:  if (req_btm2) Y_D = E;          // wait for object 4 drawing cycle
-                else Y_D = A;
-			
-			F:  if (req_top3) Y_D = F;          // wait for object 5 drawing cycle
-                else Y_D = A;
-			G:  if (req_btm3) Y_D = G;          // wait for object 6 drawing cycle
-                else Y_D = A;
-			
-            default:  Y_D = A;
-        endcase
+    // FSM next-state logic
+	always @(*) begin
+    	Y_D = A;
+    	// while game hasn't started OR we're clearing, keep FSM idle in A
+    	if (!started || clearing) begin
+        	Y_D = A;
+    	end
+    	else begin
+        	case (y_Q)
+				A:  if (req_top1)      Y_D = B;      // see if object 1 wants to be drawn
+                else if (req_btm1) Y_D = C;          // see if object 2 wants to be drawn
+                else if (req_top2) Y_D = D;
+                else if (req_btm2) Y_D = E;
+                else if (req_top3) Y_D = F;
+                else if (req_btm3) Y_D = G;
+                else               Y_D = A;
 
-	// FSM outputs to drive the VGA display from either objects, also displays start screen unti KEY[0] is clicked
-    always @ (*)
-    begin
-        // default assignments
-        gnt_top1 = 1'b0; gnt_btm1 = 1'b0; gnt_top2 = 1'b0; gnt_btm2 = 1'b0; gnt_top3 = 1'b0; gnt_btm3 = 1'b0;
-		MUX_write = 1'b0; MUX_x = x_top1; MUX_y = y_top1; MUX_color = color_top1;
-		if (!started) begin
-        	MUX_write = 1'b0;
-    	end
-    	else if (clearing) begin
-        	MUX_x     = clear_x;
-        	MUX_y     = clear_y;
-        	MUX_color = 9'b000_000_000;
-        	MUX_write = 1'b1;
-    	end
-        else begin 
-			case (y_Q)
-            A:  ;
-            B:  begin gnt_top1 = 1'b1; MUX_write = write_top1; 
-                      MUX_x = x_top1; MUX_y = y_top1; MUX_color = color_top1; end
-            C:  begin gnt_btm1 = 1'b1; MUX_write = write_btm1; 
-                      MUX_x = x_btm1; MUX_y = y_btm1; MUX_color = color_btm1; end
-			
-            D:  begin gnt_top2 = 1'b1; MUX_write = write_top2; 
-                      MUX_x = x_top2; MUX_y = y_top2; MUX_color = color_top2; end
-            E:  begin gnt_btm2 = 1'b1; MUX_write = write_btm2; 
-                      MUX_x = x_btm2; MUX_y = y_btm2; MUX_color = color_btm2; end
-			
-            F:  begin gnt_top3 = 1'b1; MUX_write = write_top3; 
-                      MUX_x = x_top3; MUX_y = y_top3; MUX_color = color_top3; end
-            G:  begin gnt_btm3 = 1'b1; MUX_write = write_btm3; 
-                      MUX_x = x_btm3; MUX_y = y_btm3; MUX_color = color_btm3; end
+            B:  Y_D = (req_top1) ? B : A;            // wait for object 1 drawing cycle
+            C:  Y_D = (req_btm1) ? C : A;            // wait for object 2 drawing cycle
+            D:  Y_D = (req_top2) ? D : A;            // wait for object 3 drawing cycle
+            E:  Y_D = (req_btm2) ? E : A;            // wait for object 4 drawing cycle
+            F:  Y_D = (req_top3) ? F : A;            // wait for object 5 drawing cycle
+            G:  Y_D = (req_btm3) ? G : A;            // wait for object 6 drawing cycle
+
+            	default: Y_D = A;
         	endcase
-		end
+    	end
+	end
+
+
+	// FSM outputs to drive the VGA display
+	always @(*) begin
+    	// default assignments
+    	gnt_top1 = 1'b0; gnt_btm1 = 1'b0;
+    	gnt_top2 = 1'b0; gnt_btm2 = 1'b0;
+    	gnt_top3 = 1'b0; gnt_btm3 = 1'b0;
+
+    	MUX_x = 10'd0;
+    	MUX_y = 9'd0;
+    	MUX_color = 9'b000_000_000;
+    	MUX_write = 1'b0;
+
+    if (!started) begin
+        // before KEY[0] is pressed
+        MUX_write = 1'b0;
     end
+    else if (clearing) begin
+		// after KEY[0] press, make screen black
+        MUX_x = clear_x;
+        MUX_y = clear_y;
+        MUX_color = 9'b000_000_000;
+        MUX_write = 1'b1;
+    end
+    else begin
+        case (y_Q)
+            A: ;
+            B: begin
+                gnt_top1  = 1'b1;
+                MUX_write = write_top1;
+                MUX_x = x_top1;
+                MUX_y = y_top1;
+                MUX_color = color_top1;
+            end
+            C: begin
+                gnt_btm1  = 1'b1;
+                MUX_write = write_btm1;
+                MUX_x = x_btm1;
+                MUX_y = y_btm1;
+                MUX_color = color_btm1;
+            end
+            D: begin
+                gnt_top2  = 1'b1;
+                MUX_write = write_top2;
+                MUX_x = x_top2;
+                MUX_y = y_top2;
+                MUX_color = color_top2;
+            end
+            E: begin
+                gnt_btm2  = 1'b1;
+                MUX_write = write_btm2;
+                MUX_x = x_btm2;
+                MUX_y = y_btm2;
+                MUX_color = color_btm2;
+            end
+            F: begin
+                gnt_top3  = 1'b1;
+                MUX_write = write_top3;
+                MUX_x = x_top3;
+                MUX_y = y_top3;
+                MUX_color = color_top3;
+            end
+            G: begin
+                gnt_btm3  = 1'b1;
+                MUX_write = write_btm3;
+                MUX_x = x_btm3;
+                MUX_y = y_btm3;
+                MUX_color = color_btm3;
+            end
+        	endcase
+    	end
+	end
+
 
     // FSM state flip-flops
     always @(posedge CLOCK_50)
@@ -213,14 +252,13 @@ end
             y_Q <= Y_D;
 
 
-	// top1
+	
 	object top1 (Resetn, CLOCK_50, gnt_top1, req_top1,
              9'd0, top_h1,              // Y_init, Y_dim
              x_top1, y_top1, color_top1, write_top1,
              wrap_top1);
     defparam top1.COLOR = 9'b000_111_000;
 
-	// btm1
 	object btm1 (Resetn, CLOCK_50, gnt_btm1, req_btm1,
              btm_y1, btm_h1,             // Y_init, Y_dim
              x_btm1, y_btm1, color_btm1, write_btm1,
@@ -228,7 +266,6 @@ end
     defparam btm1.X_INIT = 10'd620;
     defparam btm1.COLOR  = 9'b000_111_000;
 
-	// top2
 	object top2 (Resetn, CLOCK_50, gnt_top2, req_top2,
              9'd0, top_h2,              // Y_init, Y_dim
              x_top2, y_top2, color_top2, write_top2,
@@ -236,7 +273,6 @@ end
     defparam top2.X_INIT = 10'd420;
     defparam top2.COLOR  = 9'b000_000_111;
 
-	// btm2
 	object btm2 (Resetn, CLOCK_50, gnt_btm2, req_btm2,
              btm_y2, btm_h2,             // Y_init, Y_dim
              x_btm2, y_btm2, color_btm2, write_btm2,
@@ -244,7 +280,6 @@ end
     defparam btm2.X_INIT = 10'd420;
     defparam btm2.COLOR  = 9'b000_000_111;
 
-	// top3
 	object top3 (Resetn, CLOCK_50, gnt_top3, req_top3,
              9'd0, top_h3,              // Y_init, Y_dim
              x_top3, y_top3, color_top3, write_top3,
@@ -252,7 +287,6 @@ end
     defparam top3.X_INIT = 10'd220;
     defparam top3.COLOR  = 9'b111_000_000;
 
-	// btm3
 	object btm3 (Resetn, CLOCK_50, gnt_btm3, req_btm3,
              btm_y3, btm_h3,             // Y_init, Y_dim
              x_btm3, y_btm3, color_btm3, write_btm3,
@@ -276,7 +310,6 @@ end
 		.VGA_BLANK_N(VGA_BLANK_N),
 		.VGA_SYNC_N(VGA_SYNC_N),
 		.VGA_CLK(VGA_CLK));
-        // choose background image 
 		defparam VGA.BACKGROUND_IMAGE = "./MIF/startscreen.mif";
     assign LEDR[9:0] = 10'b0;
 
