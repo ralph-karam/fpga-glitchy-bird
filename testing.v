@@ -5,6 +5,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 	
     // state codes for FSM that choses which object to draw at a given time
     parameter A = 3'b000, B = 3'b001, C = 3'b010, D = 3'b011, E = 3'b100, F = 3'b101, G = 3'b110;
+	parameter XSCREEN = 640;
 
 	input wire CLOCK_50;	
 	input wire [9:0] SW;
@@ -43,13 +44,12 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 	
 	assign Resetn = KEY[0];
 
-	
 //--------------------------------------------------------
 	
 	reg started = 1'b0;
 	reg clearing = 1'b0;
-	reg [9:0] clear_x = {nX{1'b0}};
-	reg [8:0] clear_y = {nY{1'b0}};
+	reg [9:0] clear_x = {10{1'b0}};
+	reg [8:0] clear_y = {9{1'b0}};
 
 	// detect first press of KEY0 (active-low reset)
 	always @(posedge CLOCK_50 or negedge Resetn) begin
@@ -57,8 +57,8 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
         // user pressed KEY0: start the game and begin clearing
         started  <= 1'b1;
         clearing <= 1'b1;
-        clear_x  <= {nX{1'b0}};
-        clear_y  <= {nY{1'b0}};
+		clear_x  <= {10{1'b0}};
+		clear_y  <= {9{1'b0}};
     end
     else if (clearing) begin
         // scan through the whole screen and make it black
@@ -139,12 +139,8 @@ end
         end
     end
 	
-	
-	
 	//-------------------------------------
 	
-
-
     always @ (*)
         case (y_Q)
 			A:  if (req_top1) Y_D = B;          // see if object 1 wants to be drawn
@@ -230,7 +226,6 @@ end
              x_btm1, y_btm1, color_btm1, write_btm1,
              wrap_btm1);
     defparam btm1.X_INIT = 10'd620;
-    // defparam btm1.Y_INIT = 9'd280;   // no longer needed
     defparam btm1.COLOR  = 9'b000_111_000;
 
 	// top2
@@ -247,7 +242,6 @@ end
              x_btm2, y_btm2, color_btm2, write_btm2,
              wrap_btm2);
     defparam btm2.X_INIT = 10'd420;
-    // defparam btm2.Y_INIT = 9'd280;   // no longer needed
     defparam btm2.COLOR  = 9'b000_000_111;
 
 	// top3
@@ -264,11 +258,7 @@ end
              x_btm3, y_btm3, color_btm3, write_btm3,
              wrap_btm3);
     defparam btm3.X_INIT = 10'd220;
-    // defparam btm3.Y_INIT = 9'd280;   // no longer needed
     defparam btm3.COLOR  = 9'b111_000_000;
-	 
-	 
-	 
 
     // connect to VGA controller
     vga_adapter VGA (
@@ -386,7 +376,7 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim,
 
 	wire [9:0] X_RIGHT = XSCREEN[9:0] - XDIM[9:0];
 
-	// true only when we're in the move state and about to wrap
+	// true only when in the move state and about to wrap
 	wire wrap_load = (y_Q == I) && (X == 'd0);
 
 	// value that UpDn_count will load into X on Lx
@@ -394,34 +384,27 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim,
 	
 	assign wrap = wrap_load;
 
-   assign X0 = X_INIT;
-   assign Y_base = Y_init;
+    assign X0 = X_INIT;
+    assign Y_base = Y_init;
 
     
 	UpDn_count U2 (X_RLOAD, Clock, Resetn, Ex, Lx, 1'b0, X);    // object's column location // X moves left only: count down and wrap via Lx
         defparam U2.n = nX;
-
-	
-
    UpDn_count U3 ({nX{1'd0}}, Clock, Resetn, Exc, Lxc, 1'b1, XC); // object column counter
         defparam U3.n = nX;
    UpDn_count U4 ({nY{1'd0}}, Clock, Resetn, Eyc, Lyc, 1'b1, YC); // object row counter
         defparam U4.n = nY;
-
    Up_count U6 (Clock, Resetn, slow);  // counter to control the speed of moving
      defparam U6.n = KK;
 
- 
    assign sync = (slow == {KK{1'b1}});
 
-
-   assign VGA_x = X + XC;                          // pixel x coordinate
+   	assign VGA_x = X + XC;                          // pixel x coordinate
     assign VGA_y = Y_base + YC;                          // pixel y coordinate
     assign VGA_color = erase == 0 ? color : ALT;    // pixel color to draw/erase
     assign VGA_write = write;                       // pixel write control
 
-
-
+	
     always @ (*)
         case (y_Q)
             A:  Y_D = B;                        // initialize counters, registers
