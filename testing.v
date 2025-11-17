@@ -48,27 +48,60 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 	wire [8:0] color_top1, color_top2, color_top3;
 	wire [8:0] color_btm1, color_btm2, color_btm3;
 	
-   wire write_top1, write_top2, write_top3;
-   wire write_btm1, write_btm2, write_btm3;
+	wire write_top1, write_top2, write_top3;
+	wire write_btm1, write_btm2, write_btm3;
 	
 	wire req_top1, req_top2, req_top3;
 	wire req_btm1, req_btm2, req_btm3;
 	
-   reg gnt_top1, gnt_top2, gnt_top3;
+    reg gnt_top1, gnt_top2, gnt_top3;
 	reg gnt_btm1, gnt_btm2, gnt_btm3;
 	
 	reg [nX-1:0] MUX_x;
 	reg [nY-1:0] MUX_y;
 	reg [8:0] MUX_color;
-   reg MUX_write;
+    reg MUX_write;
 	reg [2:0] y_Q, Y_D;
+	wire Resetn;
 	
-   wire Resetn;
+	assign Resetn = KEY[0];
 
-   assign Resetn = KEY[0];
+	
+//--------------------------------------------------------
+	
+	reg started = 1'b0;
+	reg clearing = 1'b0;
+	reg [nX-1:0] clear_x = {nX{1'b0}};
+	reg [nY-1:0] clear_y = {nY{1'b0}};
+
+	// detect first press of KEY0 (active-low reset)
+	always @(posedge CLOCK_50 or negedge Resetn) begin
+    	if (!Resetn) begin
+        // user pressed KEY0: start the game and begin clearing
+        started  <= 1'b1;
+        clearing <= 1'b1;
+        clear_x  <= {nX{1'b0}};
+        clear_y  <= {nY{1'b0}};
+    end
+    else if (clearing) begin
+        // scan through the whole screen and make it black
+        if (clear_x == XSCREEN-1) begin
+            clear_x <= 0;
+            if (clear_y == YSCREEN-1) begin
+                // done clearing
+                clear_y <= 0;
+                clearing <= 1'b0;
+            end else begin
+                clear_y <= clear_y + 1'b1;
+            end
+        end else begin
+            clear_x <= clear_x + 1'b1;
+        end
+    end
+end
 	
 	
-	//-------------------------------------
+	//-------------------------------------------------------
 	
 	parameter [nY-1:0] GAP = 9'd80;
 	parameter [nY-1:0] YSCREEN = 9'd480;
@@ -93,7 +126,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 	 // update pillar heights when the top wraps
     always @(posedge CLOCK_50 or negedge Resetn) begin
         if (!Resetn) begin
-            // some initial heights
+            // initial heights
             top_h1 <= 9'd200;
             top_h2 <= 9'd150;
             top_h3 <= 9'd220;
@@ -108,7 +141,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
             btm_y3 <= top_h3 + GAP;
         end
         else begin
-            // when a top pillar wraps, pick a new height and recompute the bottom
+            // when a top pillar wraps picks a new height and recomputes the bottom pillar
             if (wrap_top1) begin
                 top_h1 <= rand_h;
                 btm_h1 <= (YSCREEN - GAP) - rand_h;
@@ -138,7 +171,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     always @ (*)
         case (y_Q)
 			A:  if (req_top1) Y_D = B;          // see if object 1 wants to be drawn
-			else if (req_btm1) Y_D = C;     // see if object 2 wants to be drawn
+			else if (req_btm1) Y_D = C;     	// see if object 2 wants to be drawn
 			else if (req_top2) Y_D = D;
 			else if (req_btm2) Y_D = E;
 			else if (req_top3) Y_D = F;
@@ -163,13 +196,23 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
             default:  Y_D = A;
         endcase
 
-    // FSM outputs to drive the VGA display from either object 1 or object 2
+	// FSM outputs to drive the VGA display from either objects, also displays start screen unti KEY[0] is clicked
     always @ (*)
     begin
         // default assignments
         gnt_top1 = 1'b0; gnt_btm1 = 1'b0; gnt_top2 = 1'b0; gnt_btm2 = 1'b0; gnt_top3 = 1'b0; gnt_btm3 = 1'b0;
 		MUX_write = 1'b0; MUX_x = x_top1; MUX_y = y_top1; MUX_color = color_top1;
-        case (y_Q)
+		if (!started) begin
+        	MUX_write = 1'b0;
+    	end
+    	else if (clearing) begin
+        	MUX_x     = clear_x;
+        	MUX_y     = clear_y;
+        	MUX_color = 9'b000_000_000;
+        	MUX_write = 1'b1;
+    	end
+        else begin 
+			case (y_Q)
             A:  ;
             B:  begin gnt_top1 = 1'b1; MUX_write = write_top1; 
                       MUX_x = x_top1; MUX_y = y_top1; MUX_color = color_top1; end
@@ -185,8 +228,8 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
                       MUX_x = x_top3; MUX_y = y_top3; MUX_color = color_top3; end
             G:  begin gnt_btm3 = 1'b1; MUX_write = write_btm3; 
                       MUX_x = x_btm3; MUX_y = y_btm3; MUX_color = color_btm3; end
-				
-        endcase
+        	endcase
+		end
     end
 
     // FSM state flip-flops
@@ -279,7 +322,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 		.VGA_SYNC_N(VGA_SYNC_N),
 		.VGA_CLK(VGA_CLK));
         // choose background image 
-		defparam VGA.BACKGROUND_IMAGE = "./MIF/scenery.mif";
+		defparam VGA.BACKGROUND_IMAGE = "./MIF/startscreen.mif";
     assign LEDR[9:0] = 10'b0;
 
 endmodule
