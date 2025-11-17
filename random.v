@@ -3,7 +3,7 @@
 module obstacles(
     input  wire        CLOCK_50,
     input  wire [9:0]  SW,
-    input  wire        KEY,             // KEY[0]
+    input  wire [0:0]  KEY,              // KEY[0]
     output wire [9:0]  LEDR,
     output wire [7:0]  VGA_R,
     output wire [7:0]  VGA_G,
@@ -15,47 +15,41 @@ module obstacles(
     output wire        VGA_CLK
 );
 
+    // ------------------- Parameters -------------------
+    localparam A = 3'b000, B = 3'b001, C = 3'b010,
+               D = 3'b011, E = 3'b100, F = 3'b101, G = 3'b110;
+
     localparam XSCREEN = 640;
-    localparam YSCREEN = 480;
+    localparam YSCREEN = 9'd480;
     localparam GAP     = 9'd80;
     localparam MIN_H   = 9'd100;
     localparam RANGE_H = 9'd201;
 
-    wire Resetn = KEY;      // active-low reset (KEY0)
+    wire Resetn = KEY[0];    // active-low pushbutton
 
-    // ============================================================
-    // GAME START CONTROL
-    // ============================================================
+    // ------------------- Game start / clear -------------------
 
-    reg started  = 1'b0;    // becomes 1 AFTER first KEY release
+    reg started  = 1'b0;     // 0 = show background only, 1 = game logic active
     reg clearing = 1'b0;
+    reg [9:0] clear_x = 10'd0;
+    reg [8:0] clear_y = 9'd0;
 
-    reg [9:0] clear_x = 0;
-    reg [8:0] clear_y = 0;
-
-    // Start + clear FSM
+    // KEY[0] press (Resetn goes low) starts the game and clearing
     always @(posedge CLOCK_50 or negedge Resetn) begin
         if (!Resetn) begin
-            // When KEY0 is pressed: DO NOT start game yet.
-            started  <= 1'b0;
-            clearing <= 1'b0;
-            clear_x  <= 0;
-            clear_y  <= 0;
-        end
-        else if (!started) begin
-            // FIRST release of KEY0 → start game + clear screen
+            // First / any press of KEY[0] → start game + clear screen
             started  <= 1'b1;
             clearing <= 1'b1;
-            clear_x  <= 0;
-            clear_y  <= 0;
+            clear_x  <= 10'd0;
+            clear_y  <= 9'd0;
         end
         else if (clearing) begin
-            // Clear the screen black
+            // Scan whole screen and write black
             if (clear_x == XSCREEN-1) begin
                 clear_x <= 0;
                 if (clear_y == YSCREEN-1) begin
-                    clear_y <= 0;
-                    clearing <= 1'b0;      // done clearing
+                    clear_y  <= 0;
+                    clearing <= 1'b0;   // done clearing
                 end
                 else begin
                     clear_y <= clear_y + 1'b1;
@@ -67,33 +61,25 @@ module obstacles(
         end
     end
 
-    // Global game-active signal
-    wire game_active = started && !clearing;
-
-    // ============================================================
-    // RANDOM GENERATOR (for pillar heights)
-    // ============================================================
+    // ------------------- Random height -------------------
 
     wire [7:0] rnd;
-    random U_rand(~Resetn, CLOCK_50, rnd);
+    random U1(~Resetn, CLOCK_50, rnd);
 
-    wire [8:0] rand_mod = rnd % RANGE_H;
-    wire [8:0] rand_h   = MIN_H + rand_mod;
-
-    // ============================================================
-    // PILLAR HEIGHT LOGIC
-    // ============================================================
+    wire [8:0] rand_mod = rnd % RANGE_H;   // 0..200
+    wire [8:0] rand_h   = MIN_H + rand_mod; // 100..300
 
     reg [8:0] top_h1, btm_h1, btm_y1;
     reg [8:0] top_h2, btm_h2, btm_y2;
     reg [8:0] top_h3, btm_h3, btm_y3;
 
     wire wrap_top1, wrap_top2, wrap_top3;
-    wire wrap_btm1, wrap_btm2, wrap_btm3;  // unused
+    wire wrap_btm1, wrap_btm2, wrap_btm3;  // unused, to avoid floating ports
 
+    // Heights
     always @(posedge CLOCK_50 or negedge Resetn) begin
         if (!Resetn) begin
-            // Set initial top heights directly
+            // Initial fixed heights
             top_h1 <= 9'd200;
             top_h2 <= 9'd150;
             top_h3 <= 9'd220;
@@ -108,7 +94,6 @@ module obstacles(
             btm_h3 <= YSCREEN - (9'd220 + GAP);
         end
         else begin
-            // On wrap, assign new random heights
             if (wrap_top1) begin
                 top_h1 <= rand_h;
                 btm_y1 <= rand_h + GAP;
@@ -127,42 +112,30 @@ module obstacles(
         end
     end
 
-    // ============================================================
-    // INSTANTIATE ALL OBJECTS (BUT FREEZE IF !game_active)
-    // ============================================================
+    // ------------------- Object instances -------------------
 
     wire [9:0] x_top1, x_btm1, x_top2, x_btm2, x_top3, x_btm3;
     wire [8:0] y_top1, y_btm1, y_top2, y_btm2, y_top3, y_btm3;
 
     wire [8:0] color_top1, color_btm1, color_top2, color_btm2, color_top3, color_btm3;
-    wire write_top1, write_btm1, write_top2, write_btm2, write_top3, write_btm3;
+    wire       write_top1, write_btm1, write_top2, write_btm2, write_top3, write_btm3;
 
-    wire req_top1, req_btm1, req_top2, req_btm2, req_top3, req_btm3;
+    wire       req_top1, req_btm1, req_top2, req_btm2, req_top3, req_btm3;
 
-    // Global gating of requests BEFORE game start:
-    wire req_top1_g = game_active ? req_top1 : 1'b0;
-    wire req_btm1_g = game_active ? req_btm1 : 1'b0;
-    wire req_top2_g = game_active ? req_top2 : 1'b0;
-    wire req_btm2_g = game_active ? req_btm2 : 1'b0;
-    wire req_top3_g = game_active ? req_top3 : 1'b0;
-    wire req_btm3_g = game_active ? req_btm3 : 1'b0;
+    reg        gnt_top1, gnt_btm1, gnt_top2, gnt_btm2, gnt_top3, gnt_btm3;
 
-    reg gnt_top1, gnt_btm1, gnt_top2, gnt_btm2, gnt_top3, gnt_btm3;
-
-    // Top 1
-    object top1(
-        Resetn, CLOCK_50,
-        gnt_top1 & game_active, req_top1,
+    // top1
+    object top1 (
+        Resetn, CLOCK_50, gnt_top1, req_top1,
         9'd0, top_h1,
         x_top1, y_top1, color_top1, write_top1,
         wrap_top1
     );
     defparam top1.COLOR = 9'b000_111_000;
 
-    // Bottom 1
-    object btm1(
-        Resetn, CLOCK_50,
-        gnt_btm1 & game_active, req_btm1,
+    // btm1
+    object btm1 (
+        Resetn, CLOCK_50, gnt_btm1, req_btm1,
         btm_y1, btm_h1,
         x_btm1, y_btm1, color_btm1, write_btm1,
         wrap_btm1
@@ -170,10 +143,9 @@ module obstacles(
     defparam btm1.X_INIT = 10'd620;
     defparam btm1.COLOR  = 9'b000_111_000;
 
-    // Top 2
-    object top2(
-        Resetn, CLOCK_50,
-        gnt_top2 & game_active, req_top2,
+    // top2
+    object top2 (
+        Resetn, CLOCK_50, gnt_top2, req_top2,
         9'd0, top_h2,
         x_top2, y_top2, color_top2, write_top2,
         wrap_top2
@@ -181,10 +153,9 @@ module obstacles(
     defparam top2.X_INIT = 10'd420;
     defparam top2.COLOR  = 9'b000_000_111;
 
-    // Bottom 2
-    object btm2(
-        Resetn, CLOCK_50,
-        gnt_btm2 & game_active, req_btm2,
+    // btm2
+    object btm2 (
+        Resetn, CLOCK_50, gnt_btm2, req_btm2,
         btm_y2, btm_h2,
         x_btm2, y_btm2, color_btm2, write_btm2,
         wrap_btm2
@@ -192,10 +163,9 @@ module obstacles(
     defparam btm2.X_INIT = 10'd420;
     defparam btm2.COLOR  = 9'b000_000_111;
 
-    // Top 3
-    object top3(
-        Resetn, CLOCK_50,
-        gnt_top3 & game_active, req_top3,
+    // top3
+    object top3 (
+        Resetn, CLOCK_50, gnt_top3, req_top3,
         9'd0, top_h3,
         x_top3, y_top3, color_top3, write_top3,
         wrap_top3
@@ -203,10 +173,9 @@ module obstacles(
     defparam top3.X_INIT = 10'd220;
     defparam top3.COLOR  = 9'b111_000_000;
 
-    // Bottom 3
-    object btm3(
-        Resetn, CLOCK_50,
-        gnt_btm3 & game_active, req_btm3,
+    // btm3
+    object btm3 (
+        Resetn, CLOCK_50, gnt_btm3, req_btm3,
         btm_y3, btm_h3,
         x_btm3, y_btm3, color_btm3, write_btm3,
         wrap_btm3
@@ -214,45 +183,46 @@ module obstacles(
     defparam btm3.X_INIT = 10'd220;
     defparam btm3.COLOR  = 9'b111_000_000;
 
-    // ============================================================
-    // ARBITER FSM — FULLY FIXED FOR BACKGROUND-ONLY START
-    // ============================================================
-
-    // States
-    localparam SA = 3'b000, SB = 3'b001, SC = 3'b010,
-               SD = 3'b011, SE = 3'b100, SF = 3'b101, SG = 3'b110;
+    // ------------------- Arbiter FSM -------------------
 
     reg [2:0] y_Q, Y_D;
 
+    // Next-state logic: **forced idle** if game not started or still clearing
     always @(*) begin
-        if (!game_active) begin
-            Y_D = SA;     // force idle before KEY0
+        if (!started || clearing) begin
+            Y_D = A;  // stay idle until game starts AND clearing is done
         end
         else begin
             case (y_Q)
-                SA: if (req_top1_g)      Y_D = SB;
-                    else if (req_btm1_g) Y_D = SC;
-                    else if (req_top2_g) Y_D = SD;
-                    else if (req_btm2_g) Y_D = SE;
-                    else if (req_top3_g) Y_D = SF;
-                    else if (req_btm3_g) Y_D = SG;
-                    else                 Y_D = SA;
+                A:  if (req_top1)      Y_D = B;
+                    else if (req_btm1) Y_D = C;
+                    else if (req_top2) Y_D = D;
+                    else if (req_btm2) Y_D = E;
+                    else if (req_top3) Y_D = F;
+                    else if (req_btm3) Y_D = G;
+                    else               Y_D = A;
 
-                SB: Y_D = (req_top1_g) ? SB : SA;
-                SC: Y_D = (req_btm1_g) ? SC : SA;
-                SD: Y_D = (req_top2_g) ? SD : SA;
-                SE: Y_D = (req_btm2_g) ? SE : SA;
-                SF: Y_D = (req_top3_g) ? SF : SA;
-                SG: Y_D = (req_btm3_g) ? SG : SA;
+                B:  Y_D = (req_top1)  ? B : A;
+                C:  Y_D = (req_btm1)  ? C : A;
+                D:  Y_D = (req_top2)  ? D : A;
+                E:  Y_D = (req_btm2)  ? E : A;
+                F:  Y_D = (req_top3)  ? F : A;
+                G:  Y_D = (req_btm3)  ? G : A;
 
-                default: Y_D = SA;
+                default: Y_D = A;
             endcase
         end
     end
 
-    // ============================================================
-    // MUX OUTPUTS TO VGA
-    // ============================================================
+    // FSM state FFs
+    always @(posedge CLOCK_50 or negedge Resetn) begin
+        if (!Resetn)
+            y_Q <= A;
+        else
+            y_Q <= Y_D;
+    end
+
+    // ------------------- MUX to VGA -------------------
 
     reg [9:0] MUX_x;
     reg [8:0] MUX_y;
@@ -260,56 +230,92 @@ module obstacles(
     reg       MUX_write;
 
     always @(*) begin
-        // Default: no writes, no grants
-        gnt_top1 = 0; gnt_btm1 = 0;
-        gnt_top2 = 0; gnt_btm2 = 0;
-        gnt_top3 = 0; gnt_btm3 = 0;
+        // defaults
+        gnt_top1 = 1'b0; gnt_btm1 = 1'b0;
+        gnt_top2 = 1'b0; gnt_btm2 = 1'b0;
+        gnt_top3 = 1'b0; gnt_btm3 = 1'b0;
 
-        MUX_write = 0;
-        MUX_x     = 0;
-        MUX_y     = 0;
-        MUX_color = 9'b0;
+        MUX_x     = 10'd0;
+        MUX_y     = 9'd0;
+        MUX_color = 9'b000_000_000;
+        MUX_write = 1'b0;
+
+        // *** KEY BEHAVIOUR ***
+        // 1) Before KEY[0] is EVER pressed: started = 0 → NO WRITES
+        //    VGA shows ONLY the BACKGROUND_IMAGE.
+        // 2) When KEY[0] is pressed: started=1, clearing=1 → clear black.
+        // 3) After clearing: objects are drawn as normal.
 
         if (!started) begin
-            // BEFORE KEY0 → background only
-            MUX_write = 0;
+            // SHOW ONLY BACKGROUND (no writes at all)
+            MUX_write = 1'b0;
         end
         else if (clearing) begin
-            // CLEARING SCREEN
+            // Clear entire screen to black
             MUX_x     = clear_x;
             MUX_y     = clear_y;
             MUX_color = 9'b000_000_000;
-            MUX_write = 1;
+            MUX_write = 1'b1;
         end
         else begin
-            // GAME ACTIVE: select objects normally
+            // Normal game drawing
             case (y_Q)
-                SB: begin gnt_top1  = 1; MUX_write = write_top1;
-                          MUX_x     = x_top1; MUX_y = y_top1; MUX_color = color_top1; end
-                SC: begin gnt_btm1  = 1; MUX_write = write_btm1;
-                          MUX_x     = x_btm1; MUX_y = y_btm1; MUX_color = color_btm1; end
+                A: ; // nothing
 
-                SD: begin gnt_top2  = 1; MUX_write = write_top2;
-                          MUX_x     = x_top2; MUX_y = y_top2; MUX_color = color_top2; end
-                SE: begin gnt_btm2  = 1; MUX_write = write_btm2;
-                          MUX_x     = x_btm2; MUX_y = y_btm2; MUX_color = color_btm2; end
+                B: begin
+                    gnt_top1  = 1'b1;
+                    MUX_x     = x_top1;
+                    MUX_y     = y_top1;
+                    MUX_color = color_top1;
+                    MUX_write = write_top1;
+                end
 
-                SF: begin gnt_top3  = 1; MUX_write = write_top3;
-                          MUX_x     = x_top3; MUX_y = y_top3; MUX_color = color_top3; end
-                SG: begin gnt_btm3  = 1; MUX_write = write_btm3;
-                          MUX_x     = x_btm3; MUX_y = y_btm3; MUX_color = color_btm3; end
+                C: begin
+                    gnt_btm1  = 1'b1;
+                    MUX_x     = x_btm1;
+                    MUX_y     = y_btm1;
+                    MUX_color = color_btm1;
+                    MUX_write = write_btm1;
+                end
+
+                D: begin
+                    gnt_top2  = 1'b1;
+                    MUX_x     = x_top2;
+                    MUX_y     = y_top2;
+                    MUX_color = color_top2;
+                    MUX_write = write_top2;
+                end
+
+                E: begin
+                    gnt_btm2  = 1'b1;
+                    MUX_x     = x_btm2;
+                    MUX_y     = y_btm2;
+                    MUX_color = color_btm2;
+                    MUX_write = write_btm2;
+                end
+
+                F: begin
+                    gnt_top3  = 1'b1;
+                    MUX_x     = x_top3;
+                    MUX_y     = y_top3;
+                    MUX_color = color_top3;
+                    MUX_write = write_top3;
+                end
+
+                G: begin
+                    gnt_btm3  = 1'b1;
+                    MUX_x     = x_btm3;
+                    MUX_y     = y_btm3;
+                    MUX_color = color_btm3;
+                    MUX_write = write_btm3;
+                end
             endcase
         end
     end
 
-    always @(posedge CLOCK_50)
-        y_Q <= Y_D;
+    // ------------------- VGA adapter -------------------
 
-    // ============================================================
-    // VGA ADAPTER
-    // ============================================================
-
-    vga_adapter VGA(
+    vga_adapter VGA (
         .resetn(Resetn),
         .clock(CLOCK_50),
         .color(MUX_color),
@@ -325,10 +331,9 @@ module obstacles(
         .VGA_SYNC_N(VGA_SYNC_N),
         .VGA_CLK(VGA_CLK)
     );
-
-    defparam VGA.RESOLUTION = "640x480";
-    defparam VGA.BITS_PER_COLOUR_CHANNEL = 3;  // WIDTH=9
-    defparam VGA.BACKGROUND_IMAGE = "startscreen.mif";
+    defparam VGA.RESOLUTION              = "640x480";
+    defparam VGA.BITS_PER_COLOUR_CHANNEL = 3;
+    defparam VGA.BACKGROUND_IMAGE        = "startscreen.mif";
 
     assign LEDR = 10'b0;
 
