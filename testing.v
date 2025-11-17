@@ -1,26 +1,8 @@
 `default_nettype none
 
-module random #(parameter seedInitial = 8'd67) (reset, Clock, seed);
-    input reset;
-    input Clock;
-    output reg [7:0] seed;
-
-    wire next;
-    assign next = seed[7] ^ seed[5] ^ seed[4] ^ seed[3];
-
-    always @(posedge Clock) begin
-        if (reset) begin
-            seed <= seedInitial;
-        end else begin
-            seed <= {seed[6:0], next};
-        end
-    end
-endmodule
-
 module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 				VGA_HS, VGA_VS, VGA_BLANK_N, VGA_SYNC_N, VGA_CLK);
 	
-
     // state codes for FSM that choses which object to draw at a given time
     parameter A = 3'b000, B = 3'b001, C = 3'b010, D = 3'b011, E = 3'b100, F = 3'b101, G = 3'b110;
 
@@ -240,8 +222,6 @@ end
              9'd0, top_h1,              // Y_init, Y_dim
              x_top1, y_top1, color_top1, write_top1,
              wrap_top1);
-    defparam top1.nX    = nX;
-    defparam top1.nY    = nY;
     defparam top1.COLOR = 9'b000_111_000;
 
 	// btm1
@@ -249,8 +229,6 @@ end
              btm_y1, btm_h1,             // Y_init, Y_dim
              x_btm1, y_btm1, color_btm1, write_btm1,
              wrap_btm1);
-    defparam btm1.nX     = nX;
-    defparam btm1.nY     = nY;
     defparam btm1.X_INIT = 10'd620;
     // defparam btm1.Y_INIT = 9'd280;   // no longer needed
     defparam btm1.COLOR  = 9'b000_111_000;
@@ -260,8 +238,6 @@ end
              9'd0, top_h2,              // Y_init, Y_dim
              x_top2, y_top2, color_top2, write_top2,
              wrap_top2);
-    defparam top2.nX     = nX;
-    defparam top2.nY     = nY;
     defparam top2.X_INIT = 10'd420;
     defparam top2.COLOR  = 9'b000_000_111;
 
@@ -270,8 +246,6 @@ end
              btm_y2, btm_h2,             // Y_init, Y_dim
              x_btm2, y_btm2, color_btm2, write_btm2,
              wrap_btm2);
-    defparam btm2.nX     = nX;
-    defparam btm2.nY     = nY;
     defparam btm2.X_INIT = 10'd420;
     // defparam btm2.Y_INIT = 9'd280;   // no longer needed
     defparam btm2.COLOR  = 9'b000_000_111;
@@ -281,8 +255,6 @@ end
              9'd0, top_h3,              // Y_init, Y_dim
              x_top3, y_top3, color_top3, write_top3,
              wrap_top3);
-    defparam top3.nX     = nX;
-    defparam top3.nY     = nY;
     defparam top3.X_INIT = 10'd220;
     defparam top3.COLOR  = 9'b111_000_000;
 
@@ -291,8 +263,6 @@ end
              btm_y3, btm_h3,             // Y_init, Y_dim
              x_btm3, y_btm3, color_btm3, write_btm3,
              wrap_btm3);
-    defparam btm3.nX     = nX;
-    defparam btm3.nY     = nY;
     defparam btm3.X_INIT = 10'd220;
     // defparam btm3.Y_INIT = 9'd280;   // no longer needed
     defparam btm3.COLOR  = 9'b111_000_000;
@@ -354,46 +324,50 @@ module Up_count (Clock, Resetn, Q);
             Q <= Q + 1'b1;
 endmodule
 
-// implements a moving colored object
+module random #(parameter seedInitial = 8'd67) (reset, Clock, seed);
+    input reset;
+    input Clock;
+    output reg [7:0] seed;
+
+    wire next;
+    assign next = seed[7] ^ seed[5] ^ seed[4] ^ seed[3];
+
+    always @(posedge Clock) begin
+        if (reset) begin
+            seed <= seedInitial;
+        end else begin
+            seed <= {seed[6:0], next};
+        end
+    end
+endmodule
+
+
+
 module object (Resetn, Clock, gnt, req, Y_init, Y_dim,  
                VGA_x, VGA_y, VGA_color, VGA_write, wrap);
 
-    // specify the number of bits needed for an X (column) pixel coordinate on the VGA display
     parameter nX = 10;
-    // specify the number of bits needed for a Y (row) pixel coordinate on the VGA display
     parameter nY = 9;
-
-    parameter XDIM = 50, YDIM = 200; // object's width and height
-	 
-	 parameter XSCREEN = 640;
+    parameter XDIM = 50, YDIM = 200;
+	parameter XSCREEN = 640;
     parameter YSCREEN = 480;
-
-
-    // default initial location of the object 
     parameter X_INIT = 10'd620;
     parameter Y_INIT = 9'd0;
-
-	// default color of the object
-	parameter COLOR = 9'b111_111_111;
-
-	//erasure color
-	parameter ALT = 9'b000_000_000;
-
-    parameter KK = 21; // controls animation speed (use 16 for DESim, 5 for ModelSim)
+	parameter COLOR = 9'b111_111_111;	//default color
+	parameter ALT = 9'b000_000_000;		//erasure color
+    parameter KK = 21; // speed 
   
-    // state codes
     parameter A = 4'b0000, B = 4'b0001, C = 4'b0010, D = 4'b0011,
               E = 4'b0100, F = 4'b0101, G = 4'b0110, H = 4'b0111,
               I = 4'b1000, J = 4'b1001, K = 4'b1010, L = 4'b1011;
 	
-
-   input wire Resetn, Clock;
-   input wire gnt;  // set to 1 when this object is selected for VGA display
-   output reg req; // object sets this request to 1 when it wants to be displayed
+    input wire Resetn, Clock;
+    input wire gnt;  // set to 1 when this object is selected for VGA display
+    output reg req; // object sets this request to 1 when it wants to be displayed
 	output wire [9:0] VGA_x;  // pixel x coordinate output
 	output wire [8:0] VGA_y;  // pixel y coordinate ouput
 	output wire [8:0] VGA_color; // pixel color output
-   output wire VGA_write;       // control output to write a pixel
+    output wire VGA_write;       // control output to write a pixel
 	
 	input wire [8:0] Y_init;
 	input wire [8:0] Y_dim;
@@ -402,17 +376,14 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim,
 	wire [9:0] X, XC, X0;    // used to traverse the object's width
 	wire [8:0] YC, Y_base;    // used to traverse the object's height
 	wire [8:0] color = COLOR;
-   wire [KK-1:0] slow;         // used to synchronize the object's speed using a counter
+    wire [KK-1:0] slow;         // used to synchronize the object's speed using a counter
 	 
-   reg Lx, Ly, Ex, Lxc, Lyc, Exc, Eyc; // load and enable signals for the object's 
-                                        // location (x,y) and the counters that traverse 
-                                        // the object's pixels (XC, YC)
-   wire sync;    // sync is for the slow counter, Ydir is the direction of moving
-   reg erase, Tdir;    // erase is used to erase the object. TDir is used to set Ydir
-   reg [3:0] y_Q, Y_D; // FSM for controlling drawing/erasing of the object
-   reg write;          // used to write to a pixel
+	reg Lx, Ly, Ex, Lxc, Lyc, Exc, Eyc; // load and enable signals for the object's location (x,y) and the counters that traverse the object's pixels (XC, YC)
+	wire sync;    // sync is for the slow counter, Ydir is the direction of moving
+	reg erase, Tdir;    // erase is used to erase the object. TDir is used to set Ydir
+	reg [3:0] y_Q, Y_D; // FSM for controlling drawing/erasing of the object
+	reg write;          // used to write to a pixel
 
-		
 	wire [9:0] X_RIGHT = XSCREEN[9:0] - XDIM[9:0];
 
 	// true only when we're in the move state and about to wrap
