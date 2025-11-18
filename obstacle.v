@@ -159,7 +159,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
         clear_x  <= {nX{1'b0}};
         clear_y  <= {nY{1'b0}};
     	end
-    else if (!clearing) begin
+	else if (!clearing && clear_x == {nX{1'b0}} && clear_y == {nY{1'b0}}) begin
         // first clock after Resetn goes high: start clearing
         clearing <= 1'b1;
         clear_x  <= {nX{1'b0}};
@@ -171,7 +171,6 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
             clear_x <= {nX{1'b0}};
             if (clear_y == YSCREEN-1) begin
                 // done: whole screen cleared to black
-                clear_y  <= {nY{1'b0}};
                 clearing <= 1'b0;
             end
             else begin
