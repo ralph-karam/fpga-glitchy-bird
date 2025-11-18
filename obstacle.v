@@ -92,7 +92,6 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 //-------------------------------------------------------
 	
 	parameter [8:0] GAP = 9'd80;
-	parameter [8:0] YSCREEN = 9'd480;
 	parameter [8:0] MIN_H = 9'd100;
 	parameter [8:0] RANGE_H = 9'd201;
 	
