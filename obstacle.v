@@ -52,7 +52,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 
 //----------------------To fix aesthetic of left "ghosts"-------------------
 
-localparam [nX-1:0] PILLAR_WIDTH = 10'd50;
+	localparam [nX-1:0] PILLAR_WIDTH = 10'd30;
 
 wire any_wrap = wrap_top1 | wrap_top2 | wrap_top3 | wrap_btm1 | wrap_btm2 | wrap_btm3;
 
@@ -284,37 +284,37 @@ end
              9'd0, top_h1,              // Y_init, Y_dim
              x_top1, y_top1, color_top1, write_top1,
              wrap_top1);
-    defparam top1.COLOR = 9'b000_111_000;
+    defparam top1.COLOR = 9'b011_111_011;
 	object btm1 (Resetn, CLOCK_50, gnt_btm1, req_btm1,
              btm_y1, btm_h1,             // Y_init, Y_dim
              x_btm1, y_btm1, color_btm1, write_btm1,
              wrap_btm1);
     defparam btm1.X_INIT = 10'd620;
-    defparam btm1.COLOR  = 9'b000_111_000;
+    defparam btm1.COLOR  = 9'b011_111_011;
 	object top2 (Resetn, CLOCK_50, gnt_top2, req_top2,
              9'd0, top_h2,              // Y_init, Y_dim
              x_top2, y_top2, color_top2, write_top2,
              wrap_top2);
     defparam top2.X_INIT = 10'd420;
-    defparam top2.COLOR  = 9'b000_000_111;
+    defparam top2.COLOR  = 9'b011_111_011;
 	object btm2 (Resetn, CLOCK_50, gnt_btm2, req_btm2,
              btm_y2, btm_h2,             // Y_init, Y_dim
              x_btm2, y_btm2, color_btm2, write_btm2,
              wrap_btm2);
     defparam btm2.X_INIT = 10'd420;
-    defparam btm2.COLOR  = 9'b000_000_111;
+    defparam btm2.COLOR  = 9'b011_111_011;
 	object top3 (Resetn, CLOCK_50, gnt_top3, req_top3,
              9'd0, top_h3,              // Y_init, Y_dim
              x_top3, y_top3, color_top3, write_top3,
              wrap_top3);
     defparam top3.X_INIT = 10'd220;
-    defparam top3.COLOR  = 9'b111_000_000;
+    defparam top3.COLOR  = 9'b011_111_011;
 	object btm3 (Resetn, CLOCK_50, gnt_btm3, req_btm3,
              btm_y3, btm_h3,             // Y_init, Y_dim
              x_btm3, y_btm3, color_btm3, write_btm3,
              wrap_btm3);
     defparam btm3.X_INIT = 10'd220;
-    defparam btm3.COLOR  = 9'b111_000_000;
+    defparam btm3.COLOR  = 9'b011_111_011;
 		
     // connect to VGA controller
     vga_adapter VGA (
