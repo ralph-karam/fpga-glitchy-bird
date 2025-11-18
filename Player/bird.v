@@ -1,7 +1,54 @@
 // for main
 
-	// instantiate bird
-    object bird (Resetn, CLOCK_50, KEY1, object_sel & step, O1_dir, O1_x, O1_y, 
+    reg prev_ps2_clk;               // ps2_clk value in the previous clock cycle
+    wire negedge_ps2_clk;           // used for PS2 keyboard signals
+   
+    reg [32:0] Serial;              // each PS2 serial data packet has 11 bits:
+                                    // STOP (1) PARITY d7 d6 d5 d4 d3 d2 d1 d0 START (0)
+                                    // 33 total bits are received (scancode/release/scancode
+
+    wire [7:0] scancode;            // used to save the current ps2 scancode
+   
+    wire O1_done;    // object move completed
+            
+    wire [1:0] O1_dir;      // used to set direction of moving for objects
+
+    wire Resetn, KEY1;        // Reset, and synchronized versions of KEYs
+    wire PS2_CLK_S, PS2_DAT_S;      // synchronized versions of PS2 signals
+
+    assign Resetn = KEY[0];
+    sync S1 (~KEY[1], Resetn, CLOCK_50, KEY1);
+
+    sync S3 (PS2_CLK, Resetn, CLOCK_50, PS2_CLK_S);
+    sync S4 (PS2_DAT, Resetn, CLOCK_50, PS2_DAT_S);
+
+    always @(posedge CLOCK_50)  // record PS2 clock value in previous CLOCK_50 cycle
+        prev_ps2_clk <= PS2_CLK_S;
+
+    // check when PS2_CLK has changed from 1 to 0
+    assign negedge_ps2_clk = (prev_ps2_clk & !PS2_CLK_S);
+
+    // save PS2 data packet
+    always @(posedge CLOCK_50) begin    // specify a 33-bit shift register
+        if (Resetn == 0)
+            Serial <= 33'b0;
+        else if (negedge_ps2_clk) begin
+            Serial[31:0] <= Serial[32:1];
+            Serial[32] <= PS2_DAT_S;
+        end
+    end
+
+    // ps2 scancode is in Serial[8:1]
+    regn USC (Serial[8:1], Resetn, Esc, CLOCK_50, scancode);
+    assign LEDR = {2'b0,scancode};
+
+    // select object according to which PS2 key was pressed. 
+    // scancode[4] == 1 for a/s/w/z and 0 for d/f/r/c
+    assign object_sel = 1'b1;
+assign O1_dir = (Serial[19:12] == 8'h1D) ? 2'b01: 2'b10; // 'W' pressed
+
+// instantiate bird
+bird O1(Resetn, CLOCK_50, KEY1, 1'b1, O1_dir, O1_x, O1_y, 
                O1_color, O1_write, O1_done, gnt_bird);
         defparam bird.LEFT  = 2'b00;  // 'a'
         defparam bird.RIGHT = 2'b11;  // 's'
@@ -11,7 +58,24 @@
 
 
 
+// syncronizer, implemented as two FFs in series
+module sync(D, Resetn, Clock, Q);
+    input wire D;
+    input wire Resetn, Clock;
+    output reg Q;
 
+    reg Qi; // internal node
+
+    always @(posedge Clock)
+        if (Resetn == 0) begin
+            Qi <= 1'b0;
+            Q <= 1'b0;
+        end
+        else begin
+            Qi <= D;
+            Q <= Qi;
+        end
+endmodule
 
 
 // n-bit register with enable
