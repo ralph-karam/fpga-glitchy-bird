@@ -201,8 +201,8 @@ module bird (Resetn, Clock, go, ps2_rec, dir, VGA_x, VGA_y, VGA_color, VGA_write
     always @ (*)
         case (y_Q)
             A:  Y_D = B;                  // load (x,y) location counters
-			B:  if (gnt_bird) Y_D = F;                // show object
-                else if (half_second_enable) Y_D = C;  
+			B:  if (gnt_bird & go) Y_D = F;                // show object
+			    else if (gnt_bird & half_second_enable) Y_D = C;  
                 else Y_D = B; //wait					 
             C:  if (XC != size_x-1) Y_D = C;    // erase row of object
                 else Y_D = D;
