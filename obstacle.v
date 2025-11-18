@@ -242,7 +242,7 @@ end
     	else if (clear_left) begin
         	// draw a black vertical line at x = 0
        		MUX_write = 1'b1;
-        	MUX_x = clear_x_right;         // x = 0
+        	MUX_x = clear_x_left;         // x = 0
         	MUX_y = clear_y_left;       // sweep y = 0..YSCREEN-1
         	MUX_color = 9'b000_000_000;     // black
         	// all grants stay 0
