@@ -255,6 +255,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
                       MUX_x = x_btm3; MUX_y = y_btm3; MUX_color = color_btm3; end
 				
         endcase
+		end
     end
 
     // FSM state flip-flops
