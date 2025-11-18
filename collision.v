@@ -83,4 +83,38 @@ endmodule
 
 
 
+wire hit1, hit2, hit3;
+
+collision col1 (
+    .player_x (player_x),
+    .player_y (player_y),
+    .pillar_x (pillar1_x),
+    .top_h    (top_h1),
+    .btm_y    (btm_y1),
+    .hit      (hit1)
+);
+
+collision col2 (
+    .player_x (player_x),
+    .player_y (player_y),
+    .pillar_x (pillar2_x),
+    .top_h    (top_h2),
+    .btm_y    (btm_y2),
+    .hit      (hit2)
+);
+
+collision col3 (
+    .player_x (player_x),
+    .player_y (player_y),
+    .pillar_x (pillar3_x),
+    .top_h    (top_h3),
+    .btm_y    (btm_y3),
+    .hit      (hit3)
+);
+
+// example debug: light LEDR[0] if any collision
+assign LEDR[0] = hit1 | hit2 | hit3;
+
+
+
 
