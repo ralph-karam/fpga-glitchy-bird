@@ -131,3 +131,52 @@ output wire [nY-1:0] bird_y;
 
 
 
+
+
+
+// Bird vs one pillar pair (top + bottom)
+module collision
+#(
+    parameter nX       = 10,
+    parameter nY       = 9,
+    parameter BIRD_W   = 32,   // bird width  in pixels
+    parameter BIRD_H   = 32,   // bird height in pixels
+    parameter PILLAR_W = 50    // pillar width (must match XDIM)
+)
+(
+    input  wire [nX-1:0] player_x,   // bird top-left X
+    input  wire [nY-1:0] player_y,   // bird top-left Y
+
+    input  wire [nX-1:0] pillar_x,   // pillar left X (from object)
+    input  wire [nY-1:0] top_h,      // top pillar height      (top_h1/2/3)
+    input  wire [nY-1:0] btm_y,      // bottom pillar start Y  (btm_y1/2/3)
+
+    output wire          hit         // 1 = collision
+);
+
+    // bird rectangle (top-left + size)
+    wire [nX-1:0] player_right  = player_x + BIRD_W - 1'b1;
+    wire [nY-1:0] player_bottom = player_y + BIRD_H - 1'b1;
+
+    // pillar strip horizontally
+    wire [nX-1:0] pillar_right = pillar_x + PILLAR_W - 1'b1;
+
+    // horizontal overlap with pillar strip
+    wire overlap_x = (player_right >= pillar_x) && (player_x <= pillar_right);
+
+    // gap is [top_h .. btm_y-1]
+    // SAFE region: bird strictly inside gap, not touching edges
+    //   player_y      >  top_h    (top of bird below gap's top edge)
+    //   player_bottom <  btm_y    (bottom of bird above gap's bottom edge)
+    wire inside_gap_top_ok    = (player_y      >  top_h);
+    wire inside_gap_bottom_ok = (player_bottom <  btm_y);
+    wire inside_gap           = inside_gap_top_ok && inside_gap_bottom_ok;
+
+    // collision if horizontally overlapping AND NOT safely inside gap
+    // i.e. touching or crossing top_h or btm_y
+    assign hit = overlap_x && ~inside_gap;
+
+endmodule
+
+
+
