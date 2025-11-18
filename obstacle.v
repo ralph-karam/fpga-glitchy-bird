@@ -7,9 +7,6 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     parameter nX = 10;
     parameter nY = 9;
 
-    // state codes for FSM that choses which object to draw at a given time
-    parameter A = 3'b000, B = 3'b001, C = 3'b010, D = 3'b011, E = 3'b100, F = 3'b101, G = 3'b110;
-
 	input wire CLOCK_50;	
 	input wire [9:0] SW;
 	input wire [0:0] KEY;
@@ -49,47 +46,53 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     assign Resetn = SW[0];
 
 	// screen geometry
-	parameter [nX-1:0] XSCREEN = 10'd640;   // 640 pixels wide
-	parameter [8:0] YSCREEN = 9'd480;    // you already have this
-
-	// full-screen clear engine
-	reg clearing;
-	reg [nX-1:0] clear_x;
-	reg [nY-1:0] clear_y;
+	parameter [nX-1:0] XSCREEN = 10'd640;
+	parameter [8:0] YSCREEN = 9'd480;
 
 
-//----------------------To fix aesthetic-------------------
-	// any pillar just wrapped?
-	wire any_wrap = wrap_top1 | wrap_top2 | wrap_top3 |
-                wrap_btm1 | wrap_btm2 | wrap_btm3;
+//----------------------To fix aesthetic of left "ghosts"-------------------
 
-	// one-shot clear of left column when a wrap happens
-	reg clear_left;
-	reg [nY-1:0] clear_y_left;
+localparam [nX-1:0] PILLAR_WIDTH = 10'd50;
 
-	// when any pillar wraps, clear the leftmost column (x=0) to black once
-	always @(posedge CLOCK_50 or negedge Resetn) begin
-    	if (!Resetn) begin
+wire any_wrap = wrap_top1 | wrap_top2 | wrap_top3 | wrap_btm1 | wrap_btm2 | wrap_btm3;
+
+reg clear_left;
+reg [nX-1:0] clear_x_left;
+reg [nY-1:0] clear_y_left;
+
+// when any pillar wraps, clear a left strip (width = PILLAR_WIDTH) to black once
+always @(posedge CLOCK_50 or negedge Resetn) begin
+    if (!Resetn) begin
         clear_left   <= 1'b0;
+        clear_x_left <= {nX{1'b0}};
         clear_y_left <= {nY{1'b0}};
-		end
-    	else if (!clear_left && any_wrap) begin
+    end
+    else if (!clear_left && any_wrap) begin
         // start clearing on first wrap pulse
         clear_left   <= 1'b1;
-        clear_y_left <= {nY{1'b0}};
-    	end
-    	else if (clear_left) begin
-        // step through all Y rows at x = 0
-        if (clear_y_left == YSCREEN-1) begin
-            clear_left   <= 1'b0;            // done
-            clear_y_left <= {nY{1'b0}};
+        clear_x_left <= {nX{1'b0}};  // x = 0
+        clear_y_left <= {nY{1'b0}};  // y = 0
+    end
+    else if (clear_left) begin
+        // sweep a rectangle: x = 0..PILLAR_WIDTH-1, y = 0..YSCREEN-1
+        if (clear_x_left == PILLAR_WIDTH-1) begin
+            clear_x_left <= {nX{1'b0}};  // restart x at 0
+            if (clear_y_left == YSCREEN-1) begin
+                // done, whole strip cleared
+                clear_left   <= 1'b0;
+                clear_y_left <= {nY{1'b0}};
+            end
+            else begin
+                clear_y_left <= clear_y_left + 1'b1;
+            end
         end
         else begin
-            clear_y_left <= clear_y_left + 1'b1;
-        	end
-    	end
-	end
-//-------------------------------------------------------
+            clear_x_left <= clear_x_left + 1'b1;
+        end
+    end
+end
+	
+//--------------------For radomly positioned gaps---------------------------------
 	
 	parameter [8:0] GAP = 9'd80;
 	parameter [8:0] MIN_H = 9'd100;
@@ -149,7 +152,11 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
         end
     end
 	
-	//-------------------------------------
+	//-------------------------Clear Start Screen------------------------------
+
+	reg clearing;
+	reg [nX-1:0] clear_x;
+	reg [nY-1:0] clear_y;
 	
 	// start a one-time clear to black when Resetn (SW[0]) goes high
 	always @(posedge CLOCK_50 or negedge Resetn) begin
@@ -170,7 +177,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
         if (clear_x == XSCREEN-1) begin
             clear_x <= {nX{1'b0}};
             if (clear_y == YSCREEN-1) begin
-                // done: whole screen cleared to black
+                // done, whole screen cleared to black
                 clearing <= 1'b0;
             end
             else begin
@@ -183,9 +190,13 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     	end
 	end
 
-//-----------------------------------------
 
-	
+
+//-----------------------------Main FSM ------------------------------
+
+	// state codes for FSM that choses which object to draw at a given time
+    parameter A = 3'b000, B = 3'b001, C = 3'b010, D = 3'b011, E = 3'b100, F = 3'b101, G = 3'b110;
+
     always @ (*)
         case (y_Q)
 			A:  if (req_top1) Y_D = B;         // see if object 1 wants to be drawn
@@ -214,27 +225,27 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
             default:  Y_D = A;
         endcase
 
-    // FSM outputs to drive the VGA display from either object 1 or object 2
+    // FSM outputs to drive the VGA display from either objects
     always @ (*)
     begin
         // default assignments
         gnt_top1 = 1'b0; gnt_btm1 = 1'b0; gnt_top2 = 1'b0; gnt_btm2 = 1'b0; gnt_top3 = 1'b0; gnt_btm3 = 1'b0;
 		MUX_write = 1'b0; MUX_x = x_top1; MUX_y = y_top1; MUX_color = color_top1;
 		if (clearing) begin
-        // override everything: clear screen to black
-        MUX_write = 1'b1;
-        MUX_x     = clear_x;
-        MUX_y     = clear_y;
-        MUX_color = 9'b000_000_000;  // black
-        // all grants stay 0
-    	end
+        	// clear screen to black
+       		MUX_write = 1'b1;
+        	MUX_x = clear_x;
+        	MUX_y = clear_y;
+        	MUX_color = 9'b000_000_000;  // black
+        	// all grants stay 0
+    		end
     	else if (clear_left) begin
-        // override everything: draw a black vertical line at x = 0
-        MUX_write = 1'b1;
-        MUX_x     = {nX{1'b0}};         // x = 0
-        MUX_y     = clear_y_left;       // sweep y = 0..YSCREEN-1
-        MUX_color = 9'b000_000_000;     // black
-        // all gnt_* stay 0
+        	// draw a black vertical line at x = 0
+       		MUX_write = 1'b1;
+        	MUX_x = {nX{1'b0}};         // x = 0
+        	MUX_y = clear_y_left;       // sweep y = 0..YSCREEN-1
+        	MUX_color = 9'b000_000_000;     // black
+        	// all grants stay 0
     	end
     	else begin
         case (y_Q)
@@ -266,6 +277,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
             y_Q <= Y_D;
 
 
+	
 	
 
 	object top1 (Resetn, CLOCK_50, gnt_top1, req_top1,
@@ -321,7 +333,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 		.VGA_SYNC_N(VGA_SYNC_N),
 		.VGA_CLK(VGA_CLK));
         // choose background image 
-		defparam VGA.BACKGROUND_IMAGE = "./MIF/scenery.mif";
+		defparam VGA.BACKGROUND_IMAGE = "./MIF/glitchybird.mif";
     assign LEDR[9:0] = 10'b0;
 
 endmodule
@@ -358,7 +370,7 @@ module Up_count (Clock, Resetn, Q);
             Q <= Q + 1'b1;
 endmodule
 
-		
+// LFSR 8-bit		
 module random #(parameter seedInitial = 8'd67) (reset, Clock, seed);
     input reset;
     input Clock;
@@ -389,7 +401,7 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim,
     parameter Y_INIT = 9'd0;
 	parameter COLOR = 9'b111_111_111;	//default color
 	parameter ALT = 9'b000_000_000;		//erasure color
-    parameter KK = 21; // speed 
+    parameter KK = 20; // speed 
   
     parameter A = 4'b0000, B = 4'b0001, C = 4'b0010, D = 4'b0011,
               E = 4'b0100, F = 4'b0101, G = 4'b0110, H = 4'b0111,
@@ -434,14 +446,14 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim,
     
 	UpDn_count U2 (X_RLOAD, Clock, Resetn, Ex, Lx, 1'b0, X);    // object's column location // X moves left only: count down and wrap via Lx
         defparam U2.n = nX;
-   UpDn_count U3 ({nX{1'd0}}, Clock, Resetn, Exc, Lxc, 1'b1, XC); // object column counter
+    UpDn_count U3 ({nX{1'd0}}, Clock, Resetn, Exc, Lxc, 1'b1, XC); // object column counter
         defparam U3.n = nX;
-   UpDn_count U4 ({nY{1'd0}}, Clock, Resetn, Eyc, Lyc, 1'b1, YC); // object row counter
+    UpDn_count U4 ({nY{1'd0}}, Clock, Resetn, Eyc, Lyc, 1'b1, YC); // object row counter
         defparam U4.n = nY;
-   Up_count U6 (Clock, Resetn, slow);  // counter to control the speed of moving
+    Up_count U6 (Clock, Resetn, slow);  // counter to control the speed of moving
      defparam U6.n = KK;
 
-   assign sync = (slow == {KK{1'b1}});
+    assign sync = (slow == {KK{1'b1}});
 
    	assign VGA_x = X + XC;                          // pixel x coordinate
     assign VGA_y = Y_base + YC;                          // pixel y coordinate
