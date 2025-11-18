@@ -107,7 +107,7 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 	reg [8:0] top_h3, btm_h3, btm_y3;
 	
 	wire wrap_top1, wrap_top2, wrap_top3;
-	wire wrap_btm1, wrap_btm2, wrap_btm3;		//unused, here to avoid floating ports
+	wire wrap_btm1, wrap_btm2, wrap_btm3;
 	
 	
 	 // update pillar heights when the top wraps
@@ -189,8 +189,8 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 	
     always @ (*)
         case (y_Q)
-			A:  if (req_top1) Y_D = B;          // see if object 1 wants to be drawn
-			else if (req_btm1) Y_D = C;     // see if object 2 wants to be drawn
+			A:  if (req_top1) Y_D = B;         // see if object 1 wants to be drawn
+			else if (req_btm1) Y_D = C;        // see if object 2 wants to be drawn
 			else if (req_top2) Y_D = D;
 			else if (req_btm2) Y_D = E;
 			else if (req_top3) Y_D = F;
