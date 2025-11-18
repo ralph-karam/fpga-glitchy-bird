@@ -17,7 +17,7 @@ module collision(Clock, player_x, player_y, top_h, x_top, collsion);
   parameter GAP = 80; 
 
   parameter player_right = 116; 
-  parameter player_left == 84;
+  parameter player_left = 84;
   
   input Resetn, Clock;
   input [9:0] player_x;
@@ -28,7 +28,7 @@ module collision(Clock, player_x, player_y, top_h, x_top, collsion);
 
   output reg collision; 
 
-  wire [:] player_top, player_bottom;
+  wire [8:0] player_top, player_bottom;
 
   assign player_top = player_y - player_H >> 1;
   assign player_bottom = player_y + player_H >> 1;
