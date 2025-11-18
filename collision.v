@@ -179,4 +179,51 @@ module collision
 endmodule
 
 
+// Bird vs one pillar pair (top + bottom)
+module collision
+#(
+    parameter nX        = 10,
+    parameter nY        = 9,
+    parameter BIRD_W    = 32,      // bird width  in pixels
+    parameter BIRD_H    = 32,      // bird height in pixels
+    parameter PILLAR_W  = 50,      // pillar width (must match XDIM)
+    parameter [nY-1:0] SCREEN_H = 9'd480  // screen height
+)
+(
+    input  wire [nX-1:0] player_x,   // bird top-left X
+    input  wire [nY-1:0] player_y,   // bird top-left Y
+
+    input  wire [nX-1:0] pillar_x,   // pillar left X (from object)
+    input  wire [nY-1:0] top_h,      // top pillar height      (top_h1/2/3)
+    input  wire [nY-1:0] btm_y,      // bottom pillar start Y  (btm_y1/2/3)
+
+    output wire          hit         // 1 = collision
+);
+
+    // bird rectangle (top-left + size)
+    wire [nX-1:0] player_right  = player_x + BIRD_W - 1'b1;
+    wire [nY-1:0] player_bottom = player_y + BIRD_H - 1'b1;
+
+    // pillar strip horizontally
+    wire [nX-1:0] pillar_right = pillar_x + PILLAR_W - 1'b1;
+
+    // horizontal overlap with pillar strip
+    wire overlap_x = (player_right >= pillar_x) && (player_x <= pillar_right);
+
+    // gap is [top_h .. btm_y-1]
+    // SAFE region: bird strictly inside gap, not touching edges
+    wire inside_gap_top_ok    = (player_y      >  top_h);
+    wire inside_gap_bottom_ok = (player_bottom <  btm_y);
+    wire inside_gap           = inside_gap_top_ok && inside_gap_bottom_ok;
+
+    // collision with pillars: overlapping in X and NOT safely inside the gap
+    wire hit_pillars = overlap_x && ~inside_gap;
+
+    // --- NEW: collision with screen top/bottom ---
+    wire hit_top_screen    = (player_y == {nY{1'b0}});           // touch y=0
+    wire hit_bottom_screen = (player_bottom >= SCREEN_H - 1'b1); // touch bottom
+
+    assign hit = hit_pillars || hit_top_screen || hit_bottom_screen;
+
+endmodule
 
