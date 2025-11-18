@@ -117,4 +117,17 @@ assign LEDR[0] = hit1 | hit2 | hit3;
 
 
 
+// ADD THESE TWO LINES:
+output wire [nX-1:0] bird_x;
+output wire [nY-1:0] bird_y;
+
+
+
+// NEW: expose bird's top-left position for collision logic
+    assign bird_x = X - (size_x >> 1);  // X is center → convert to left edge
+    assign bird_y = Y - (size_y >> 1);  // Y is center → convert to top edge
+
+
+
+
 
