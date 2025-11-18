@@ -2,7 +2,7 @@
 
 	// instantiate bird
     object bird (Resetn, CLOCK_50, KEY1, object_sel & step, O1_dir, O1_x, O1_y, 
-               O1_color, O1_write, O1_done);
+               O1_color, O1_write, O1_done, gnt_bird);
         defparam bird.LEFT  = 2'b00;  // 'a'
         defparam bird.RIGHT = 2'b11;  // 's'
         defparam bird.UP    = 2'b01;  // 'w'
@@ -126,7 +126,7 @@ endmodule
 
 
 
-module bird (Resetn, Clock, go, ps2_rec, dir, VGA_x, VGA_y, VGA_color, VGA_write, done);
+module bird (Resetn, Clock, go, ps2_rec, dir, VGA_x, VGA_y, VGA_color, VGA_write, done, gnt_bird);
     // specify the number of bits needed for an X (column) pixel coordinate on the VGA display
     parameter nX = 10;
     // specify the number of bits needed for a Y (row) pixel coordinate on the VGA display
@@ -154,6 +154,7 @@ module bird (Resetn, Clock, go, ps2_rec, dir, VGA_x, VGA_y, VGA_color, VGA_write
 	output wire [8:0] VGA_color;                // used to draw pixels
     output wire VGA_write;                      // pixel write control
     output reg done;                            // done drawing cycle
+	input wire gnt_bird;
 
 	wire [nX-1:0] X, X0;    // starting X location 
 	wire [nY-1:0] Y, Y0;    // starting Y location 
@@ -200,7 +201,7 @@ module bird (Resetn, Clock, go, ps2_rec, dir, VGA_x, VGA_y, VGA_color, VGA_write
     always @ (*)
         case (y_Q)
             A:  Y_D = B;                  // load (x,y) location counters
-            B:  if (go) Y_D = F;                // pushbutton KEY pressed to show object
+			B:  if (gnt_bird) Y_D = F;                // show object
                 else if (half_second_enable) Y_D = C;  
                 else Y_D = B; //wait					 
             C:  if (XC != size_x-1) Y_D = C;    // erase row of object
