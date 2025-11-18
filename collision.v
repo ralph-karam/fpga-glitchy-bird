@@ -34,7 +34,7 @@ module collision(Clock, player_x, player_y, top_h, x_top, collsion);
   assign player_bottom = player_y + player_H >> 1;
 
   always @(posedge Clock)
-    if (pillar_x > player_left && pillar_x < player_right)
+    if (x_top > player_left && x_top < player_right)
       if (top_h > player_top || top_h + GAP < player_bottom)
             collision <= 1'b1;
    else collision <= 1'b0;
