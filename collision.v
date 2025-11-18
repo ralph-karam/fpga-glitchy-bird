@@ -19,7 +19,7 @@ module collision(Clock, player_x, player_y, top_h, x_top, collsion);
   parameter player_right = 116; 
   parameter player_left = 84;
   
-  input Resetn, Clock;
+  input Clock;
   input [9:0] player_x;
   input [8:0] player_y;
   
