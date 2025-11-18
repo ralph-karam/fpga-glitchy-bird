@@ -46,10 +46,50 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 	
     wire Resetn;
 
-    assign Resetn = KEY[0];
+    assign Resetn = SW[0];
+
+	// screen geometry
+	parameter [nX-1:0] XSCREEN = 10'd640;   // 640 pixels wide
+	parameter [8:0] YSCREEN = 9'd480;    // you already have this
+
+	// full-screen clear engine
+	reg clearing;
+	reg [nX-1:0] clear_x;
+	reg [nY-1:0] clear_y;
 
 
-		//-------------------------------------------------------
+//----------------------To fix aesthetic-------------------
+	// any pillar just wrapped?
+	wire any_wrap = wrap_top1 | wrap_top2 | wrap_top3 |
+                wrap_btm1 | wrap_btm2 | wrap_btm3;
+
+	// one-shot clear of left column when a wrap happens
+	reg clear_left;
+	reg [nY-1:0] clear_y_left;
+
+	// when any pillar wraps, clear the leftmost column (x=0) to black once
+	always @(posedge CLOCK_50 or negedge Resetn) begin
+    	if (!Resetn) begin
+        clear_left   <= 1'b0;
+        clear_y_left <= {nY{1'b0}};
+		end
+    	else if (!clear_left && any_wrap) begin
+        // start clearing on first wrap pulse
+        clear_left   <= 1'b1;
+        clear_y_left <= {nY{1'b0}};
+    	end
+    	else if (clear_left) begin
+        // step through all Y rows at x = 0
+        if (clear_y_left == YSCREEN-1) begin
+            clear_left   <= 1'b0;            // done
+            clear_y_left <= {nY{1'b0}};
+        end
+        else begin
+            clear_y_left <= clear_y_left + 1'b1;
+        	end
+    	end
+	end
+//-------------------------------------------------------
 	
 	parameter [8:0] GAP = 9'd80;
 	parameter [8:0] YSCREEN = 9'd480;
@@ -111,7 +151,43 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
     end
 	
 	//-------------------------------------
+	
+	// start a one-time clear to black when Resetn (SW[0]) goes high
+	always @(posedge CLOCK_50 or negedge Resetn) begin
+    	if (!Resetn) begin
+        // game held in reset: do NOT clear yet
+        clearing <= 1'b0;
+        clear_x  <= {nX{1'b0}};
+        clear_y  <= {nY{1'b0}};
+    	end
+    else if (!clearing) begin
+        // first clock after Resetn goes high: start clearing
+        clearing <= 1'b1;
+        clear_x  <= {nX{1'b0}};
+        clear_y  <= {nY{1'b0}};
+    	end
+    else begin
+        // scan through the whole screen writing black
+        if (clear_x == XSCREEN-1) begin
+            clear_x <= {nX{1'b0}};
+            if (clear_y == YSCREEN-1) begin
+                // done: whole screen cleared to black
+                clear_y  <= {nY{1'b0}};
+                clearing <= 1'b0;
+            end
+            else begin
+                clear_y <= clear_y + 1'b1;
+            end
+        end
+        else begin
+            clear_x <= clear_x + 1'b1;
+        	end
+    	end
+	end
 
+//-----------------------------------------
+
+	
     always @ (*)
         case (y_Q)
 			A:  if (req_top1) Y_D = B;          // see if object 1 wants to be drawn
@@ -146,6 +222,23 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
         // default assignments
         gnt_top1 = 1'b0; gnt_btm1 = 1'b0; gnt_top2 = 1'b0; gnt_btm2 = 1'b0; gnt_top3 = 1'b0; gnt_btm3 = 1'b0;
 		MUX_write = 1'b0; MUX_x = x_top1; MUX_y = y_top1; MUX_color = color_top1;
+		if (clearing) begin
+        // override everything: clear screen to black
+        MUX_write = 1'b1;
+        MUX_x     = clear_x;
+        MUX_y     = clear_y;
+        MUX_color = 9'b000_000_000;  // black
+        // all grants stay 0
+    	end
+    	else if (clear_left) begin
+        // override everything: draw a black vertical line at x = 0
+        MUX_write = 1'b1;
+        MUX_x     = {nX{1'b0}};         // x = 0
+        MUX_y     = clear_y_left;       // sweep y = 0..YSCREEN-1
+        MUX_color = 9'b000_000_000;     // black
+        // all gnt_* stay 0
+    	end
+    	else begin
         case (y_Q)
             A:  ;
             B:  begin gnt_top1 = 1'b1; MUX_write = write_top1; 
@@ -175,51 +268,40 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, VGA_R, VGA_G, VGA_B,
 
 
 	
-// top1
-object top1 (Resetn, CLOCK_50, gnt_top1, req_top1, x_top1, y_top1, color_top1, write_top1);
-    defparam top1.nX    = nX;
-    defparam top1.nY    = nY;
-    defparam top1.COLOR = 9'b000_111_000;
 
-// btm1
-object btm1 (Resetn, CLOCK_50, gnt_btm1, req_btm1, x_btm1, y_btm1, color_btm1, write_btm1);
-    defparam btm1.nX     = nX;
-    defparam btm1.nY     = nY;
-    defparam btm1.X_INIT = 10'd620;
-    defparam btm1.Y_INIT = 9'd280;
-    defparam btm1.COLOR  = 9'b000_111_000;
-
-// top2
-object top2 (Resetn, CLOCK_50, gnt_top2, req_top2, x_top2, y_top2, color_top2, write_top2);
-    defparam top2.nX     = nX;
-    defparam top2.nY     = nY;
-    defparam top2.X_INIT = 10'd420;
-    defparam top2.COLOR  = 9'b000_000_111;
-
-// btm2
-object btm2 (Resetn, CLOCK_50, gnt_btm2, req_btm2, x_btm2, y_btm2, color_btm2, write_btm2);
-    defparam btm2.nX     = nX;
-    defparam btm2.nY     = nY;
-    defparam btm2.X_INIT = 10'd420;
-    defparam btm2.Y_INIT = 9'd280;
-    defparam btm2.COLOR  = 9'b000_000_111;
-
-// top3
-object top3 (Resetn, CLOCK_50, gnt_top3, req_top3, x_top3, y_top3, color_top3, write_top3);
-    defparam top3.nX     = nX;
-    defparam top3.nY     = nY;
-    defparam top3.X_INIT = 10'd220;
-    defparam top3.COLOR  = 9'b111_000_000;
-
-// btm3
-object btm3 (Resetn, CLOCK_50, gnt_btm3, req_btm3, x_btm3, y_btm3, color_btm3, write_btm3);
-    defparam btm3.nX     = nX;
-    defparam btm3.nY     = nY;
-    defparam btm3.X_INIT = 10'd220;
-    defparam btm3.Y_INIT = 9'd280;
-    defparam btm3.COLOR  = 9'b111_000_000;
-
-
+	object top1 (Resetn, CLOCK_50, gnt_top1, req_top1, x_top1, y_top1, color_top1, write_top1);
+    	defparam top1.nX    = nX;
+    	defparam top1.nY    = nY;
+    	defparam top1.COLOR = 9'b000_111_000;
+	object btm1 (Resetn, CLOCK_50, gnt_btm1, req_btm1, x_btm1, y_btm1, color_btm1, write_btm1);
+    	defparam btm1.nX     = nX;
+    	defparam btm1.nY     = nY;
+    	defparam btm1.X_INIT = 10'd620;
+    	defparam btm1.Y_INIT = 9'd280;
+    	defparam btm1.COLOR  = 9'b000_111_000;
+	object top2 (Resetn, CLOCK_50, gnt_top2, req_top2, x_top2, y_top2, color_top2, write_top2);
+    	defparam top2.nX     = nX;
+    	defparam top2.nY     = nY;
+    	defparam top2.X_INIT = 10'd420;
+    	defparam top2.COLOR  = 9'b000_000_111;
+	object btm2 (Resetn, CLOCK_50, gnt_btm2, req_btm2, x_btm2, y_btm2, color_btm2, write_btm2);
+    	defparam btm2.nX     = nX;
+    	defparam btm2.nY     = nY;
+    	defparam btm2.X_INIT = 10'd420;
+    	defparam btm2.Y_INIT = 9'd280;
+    	defparam btm2.COLOR  = 9'b000_000_111;
+	object top3 (Resetn, CLOCK_50, gnt_top3, req_top3, x_top3, y_top3, color_top3, write_top3);
+    	defparam top3.nX     = nX;
+    	defparam top3.nY     = nY;
+    	defparam top3.X_INIT = 10'd220;
+    	defparam top3.COLOR  = 9'b111_000_000;
+	object btm3 (Resetn, CLOCK_50, gnt_btm3, req_btm3, x_btm3, y_btm3, color_btm3, write_btm3);
+    	defparam btm3.nX     = nX;
+    	defparam btm3.nY     = nY;
+    	defparam btm3.X_INIT = 10'd220;
+    	defparam btm3.Y_INIT = 9'd280;
+    	defparam btm3.COLOR  = 9'b111_000_000;
+		
     // connect to VGA controller
     vga_adapter VGA (
 		.resetn(KEY[0]),
