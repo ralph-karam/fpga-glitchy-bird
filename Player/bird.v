@@ -1,11 +1,128 @@
 // for main
 
+	// instantiate bird
+    object bird (Resetn, CLOCK_50, KEY1, object_sel & step, O1_dir, O1_x, O1_y, 
+               O1_color, O1_write, O1_done);
+        defparam bird.LEFT  = 2'b00;  // 'a'
+        defparam bird.RIGHT = 2'b11;  // 's'
+        defparam bird.UP    = 2'b01;  // 'w'
+        defparam bird.DOWN =  2'b10;  // 'z'
 
 
 
 
 
 
+
+// n-bit register with enable
+module regn(R, Resetn, E, Clock, Q);
+    parameter n = 8;
+    input wire [n-1:0] R;
+    input wire Resetn, E, Clock;
+    output reg [n-1:0] Q;
+
+    always @(posedge Clock)
+        if (!Resetn)
+            Q <= 0;
+        else if (E)
+            Q <= R;
+endmodule
+
+// n-bit up/down-counter with reset, load, enable, and direction control
+module upDn_count (R, Clock, Resetn, L, E, Dir, Q);
+    parameter n = 8;
+    input wire [n-1:0] R;
+    input wire Clock, Resetn, E, L, Dir;
+    output reg [n-1:0] Q;
+
+    always @ (posedge Clock)
+        if (Resetn == 0)
+            Q <= {n{1'b0}};
+        else if (L == 1)
+            Q <= R;
+        else if (E)
+            if (!Dir)
+                Q <= Q + {{n-1{1'b0}},1'b1};
+            else
+                Q <= Q - {{n-1{1'b0}},1'b1};
+endmodule
+
+module half_second_counter (CLOCK_50, half_second_enable, Resetn);
+    input CLOCK_50, Resetn;
+    output reg half_second_enable;
+
+    reg [24:0] count;
+
+    always @ (posedge CLOCK_50)
+        if (!Resetn)
+            begin
+                count <= 25'd0;
+                half_second_enable <= 1'b1;
+            end
+        else
+             begin
+                 count <= count + 1;
+                 if (count == 25'd100000) 
+					      begin
+                     half_second_enable <= 1'b1;
+							count <= 25'd0;
+							end
+                 else
+                     half_second_enable <= 1'b0;
+             end
+endmodule
+
+module object_mem (address, clock, q);
+    parameter n = 3;    // memory width
+    parameter Mn = 6;   // address bits
+    parameter INIT_FILE = "./MIF/object_mem_8_8_3.mif";
+
+	input wire [Mn-1:0] address;
+	input wire clock;
+	output [n-1:0]  q;
+	wire [n-1:0] sub_wire0;
+	wire [n-1:0] q = sub_wire0[n-1:0];
+
+	altsyncram	altsyncram_component (
+				.address_a (address),
+				.clock0 (clock),
+				.q_a (sub_wire0),
+				.aclr0 (1'b0),
+				.aclr1 (1'b0),
+				.address_b (1'b1),
+				.addressstall_a (1'b0),
+				.addressstall_b (1'b0),
+				.byteena_a (1'b1),
+				.byteena_b (1'b1),
+				.clock1 (1'b1),
+				.clocken0 (1'b1),
+				.clocken1 (1'b1),
+				.clocken2 (1'b1),
+				.clocken3 (1'b1),
+				.data_a ({n{1'b1}}),
+				.data_b (1'b1),
+				.eccstatus (),
+				.q_b (),
+				.rden_a (1'b1),
+				.rden_b (1'b1),
+				.wren_a (1'b0),
+				.wren_b (1'b0));
+	defparam
+		altsyncram_component.address_aclr_a = "NONE",
+		altsyncram_component.clock_enable_input_a = "BYPASS",
+		altsyncram_component.clock_enable_output_a = "BYPASS",
+		altsyncram_component.init_file = INIT_FILE,
+		altsyncram_component.intended_device_family = "Cyclone V",
+		altsyncram_component.lpm_hint = "ENABLE_RUNTIME_MOD=NO",
+		altsyncram_component.lpm_type = "altsyncram",
+		altsyncram_component.numwords_a = 1 << Mn,
+		altsyncram_component.operation_mode = "ROM",
+		altsyncram_component.outdata_aclr_a = "NONE",
+		altsyncram_component.outdata_reg_a = "UNREGISTERED",
+		altsyncram_component.widthad_a = Mn,
+		altsyncram_component.width_a = n,
+		altsyncram_component.width_byteena_a = 1;
+endmodule
 
 
 
