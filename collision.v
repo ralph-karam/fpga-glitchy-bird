@@ -1,8 +1,13 @@
-module collision(Resetn, Clock, player_h, player_w, , collsion);
+module collision(Resetn, Clock, player_x, player_y, , collsion);
+  parameter player_H, player_W;
+  parameter GAP
+  
   input Resetn, Clock;
-  input [:] player_w, player_h;
+  input [:] player_x, player_y;
 
   output reg collision; 
+
+  
   
 
 
