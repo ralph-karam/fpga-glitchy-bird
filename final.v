@@ -11,6 +11,27 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, PS2_CLK, PS2_DAT, VGA_R, VGA_G, VGA_B,
     // state codes for FSM that choses which object to draw at a given time
    parameter A = 3'b000, B = 3'b001, C = 3'b010, D = 3'b011, E = 3'b100, F = 3'b101, G = 3'b110, H = 3'b111;
 	parameter XSCREEN = 640;
+
+
+	
+// -------- Game state machine for start / play / over --------
+localparam GS_START = 2'd0;
+localparam GS_PLAY  = 2'd1;
+localparam GS_OVER  = 2'd2;
+
+reg [1:0] game_state = GS_START;  // power-up in START
+
+// track if KEY[0] has ever been pressed + released
+reg started = 1'b0;
+reg resetn_prev;
+
+// KEY[2] edge detector (start / restart button)
+reg  key2_prev = 1'b1;   // keys are active-low
+wire start_press;
+
+
+	
+
 	
 	inout wire PS2_CLK, PS2_DAT;
 	
@@ -77,6 +98,27 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, PS2_CLK, PS2_DAT, VGA_R, VGA_G, VGA_B,
 	wire Resetn;
 	
 	assign Resetn = KEY[0];
+
+	// Detect first KEY[0] press/release to mark "game has been started at least once"
+always @(posedge CLOCK_50) begin
+    resetn_prev <= Resetn;
+
+    // detect low->high transition on Resetn (KEY[0] released after being pressed)
+    if (!resetn_prev && Resetn)
+        started <= 1'b1;
+end
+
+// KEY[2] falling edge (active-low press)
+always @(posedge CLOCK_50 or negedge Resetn) begin
+    if (!Resetn) begin
+        key2_prev <= 1'b1;
+    end else begin
+        key2_prev <= KEY[2];
+    end
+end
+
+assign start_press = (key2_prev == 1'b1) && (KEY[2] == 1'b0);
+
 	
 
 	
@@ -190,118 +232,180 @@ always @(posedge CLOCK_50 or negedge Resetn) begin
         end
     end
 end
+	
+// --------- Game state transitions ----------------------------
+always @(posedge CLOCK_50 or negedge Resetn) begin
+    if (!Resetn) begin
+        game_state <= GS_START;
+    end else begin
+        case (game_state)
+            GS_START: begin
+                if (start_press)
+                    game_state <= GS_PLAY;          // start game
+            end
+
+            GS_PLAY: begin
+                if (hit1 | hit2 | hit3)            // any collision
+                    game_state <= GS_OVER;         // go to end screen (freeze)
+            end
+
+            GS_OVER: begin
+                if (start_press)
+                    game_state <= GS_START;        // back to start screen
+            end
+
+            default: game_state <= GS_START;
+        endcase
+    end
+end
 
 
 	//----------------------------Main FSM------------------------
 	
-    // FSM next-state logic
+	// ---------------- Main arbiter FSM: next-state logic ----------------
 	always @(*) begin
-    	Y_D = A;
-        	case (y_Q)
-				A:  if (req_top1)      Y_D = B;      // see if object 1 wants to be drawn
-                else if (req_btm1) Y_D = C;          // see if object 2 wants to be drawn
-                else if (req_top2) Y_D = D;
-                else if (req_btm2) Y_D = E;
-                else if (req_top3) Y_D = F;
-                else if (req_btm3) Y_D = G;
-                else if (req_bird) Y_D = H;
-					 else Y_D = A;
+	 Y_D = A;
+    case (y_Q)
+        A:  if      (req_top1)  Y_D = B;   // see if object 1 wants to be drawn
+            else if (req_btm1)  Y_D = C;
+            else if (req_top2)  Y_D = D;
+            else if (req_btm2)  Y_D = E;
+            else if (req_top3)  Y_D = F;
+            else if (req_btm3)  Y_D = G;
+            else if (req_bird)  Y_D = H;
+            else                Y_D = A;
 
-            B:  Y_D = (req_top1) ? B : A;            // wait for object 1 drawing cycle
-            C:  Y_D = (req_btm1) ? C : A;            // wait for object 2 drawing cycle
-            D:  Y_D = (req_top2) ? D : A;            // wait for object 3 drawing cycle
-            E:  Y_D = (req_btm2) ? E : A;            // wait for object 4 drawing cycle
-            F:  Y_D = (req_top3) ? F : A;            // wait for object 5 drawing cycle
-            G:  Y_D = (req_btm3) ? G : A;            // wait for object 6 drawing cycle
-				H:  Y_D = (req_bird) ? H : A;            // wait for bird drawing cycle
+        B:  Y_D = (req_top1) ? B : A;   // wait for object 1 drawing cycle
+        C:  Y_D = (req_btm1) ? C : A;   // wait for object 2 drawing cycle
+        D:  Y_D = (req_top2) ? D : A;   // wait for object 3 drawing cycle
+        E:  Y_D = (req_btm2) ? E : A;   // wait for object 4 drawing cycle
+        F:  Y_D = (req_top3) ? F : A;   // wait for object 5 drawing cycle
+        G:  Y_D = (req_btm3) ? G : A;   // wait for object 6 drawing cycle
+        H:  Y_D = (req_bird) ? H : A;   // wait for bird drawing cycle
 
-            	default: Y_D = A;
-        	endcase
-    	end
-
-
-	// FSM outputs to drive the VGA display
-	always @(*) begin
-    	// default assignments
-    	gnt_top1 = 1'b0; gnt_btm1 = 1'b0;
-    	gnt_top2 = 1'b0; gnt_btm2 = 1'b0;
-    	gnt_top3 = 1'b0; gnt_btm3 = 1'b0;
-		gnt_bird = 1'b0;
-
-    	MUX_x = 10'd0;
-    	MUX_y = 9'd0;
-    	MUX_color = 9'b000_000_000;
-    	MUX_write = 1'b0;
-
-    if (clear_left) begin
-		MUX_x = clear_x_left;
-		MUX_y = clear_y_left;
-		MUX_color = SKYBLUE;
-		MUX_write = 1'b1;
-    end
-    else begin
-        case (y_Q)
-            A: ;
-            B: begin
-                gnt_top1  = 1'b1;
-                MUX_write = write_top1;
-                MUX_x = x_top1;
-                MUX_y = y_top1;
-                MUX_color = color_top1;
-            end
-            C: begin
-                gnt_btm1  = 1'b1;
-                MUX_write = write_btm1;
-                MUX_x = x_btm1;
-                MUX_y = y_btm1;
-                MUX_color = color_btm1;
-            end
-            D: begin
-                gnt_top2  = 1'b1;
-                MUX_write = write_top2;
-                MUX_x = x_top2;
-                MUX_y = y_top2;
-                MUX_color = color_top2;
-            end
-            E: begin
-                gnt_btm2  = 1'b1;
-                MUX_write = write_btm2;
-                MUX_x = x_btm2;
-                MUX_y = y_btm2;
-                MUX_color = color_btm2;
-            end
-            F: begin
-                gnt_top3  = 1'b1;
-                MUX_write = write_top3;
-                MUX_x = x_top3;
-                MUX_y = y_top3;
-                MUX_color = color_top3;
-            end
-            G: begin
-                gnt_btm3  = 1'b1;
-                MUX_write = write_btm3;
-                MUX_x = x_btm3;
-                MUX_y = y_btm3;
-                MUX_color = color_btm3;
-            end
-				H: begin
-				   gnt_bird = 1'b1;
-					MUX_write = O1_write;
-					MUX_x = O1_x;
-					MUX_y = O1_y;
-					MUX_color = O1_color;
-				end
-        	endcase
-    	end
+        default: Y_D = A;
+    	endcase
 	end
 
 
-    // FSM state flip-flops
-    always @(posedge CLOCK_50)
-        if (Resetn == 0)   // wait until ready
-            y_Q <= A;
-        else
-            y_Q <= Y_D;
+
+// ---------------- VGA MUX + grants, with game_state & clear_left ----------------
+always @(*) begin
+    // default assignments
+    gnt_top1 = 1'b0; gnt_btm1 = 1'b0;
+    gnt_top2 = 1'b0; gnt_btm2 = 1'b0;
+    gnt_top3 = 1'b0; gnt_btm3 = 1'b0;
+    gnt_bird = 1'b0;
+
+    MUX_x     = 10'd0;
+    MUX_y     = 9'd0;
+    MUX_color = SKYBLUE;
+    MUX_write = 1'b0;
+
+    case (game_state)
+        // ---------- START SCREEN ----------
+        // Show only BACKGROUND_IMAGE (startscreen.mif) from vga_adapter
+        GS_START: begin
+            // Do nothing: MUX_write = 0, so VRAM remains background image
+        end
+
+        // ---------- PLAYING ----------
+        GS_PLAY: begin
+            // If KEY[0] was never pressed yet, don't draw anything
+            if (!started) begin
+                MUX_write = 1'b0;
+            end
+            // clear "ghost" strip on the left when any pillar wraps
+            else if (clear_left) begin
+                MUX_x = clear_x_left;
+                MUX_y = clear_y_left;
+                MUX_color = SKYBLUE;
+                MUX_write = 1'b1;
+            end
+            else begin
+                case (y_Q)
+                    A: ; // nothing this cycle
+
+                    B: begin
+                        gnt_top1  = 1'b1;
+                        MUX_write = write_top1;
+                        MUX_x = x_top1;
+                        MUX_y = y_top1;
+                        MUX_color = color_top1;
+                    end
+
+                    C: begin
+                        gnt_btm1  = 1'b1;
+                        MUX_write = write_btm1;
+                        MUX_x = x_btm1;
+                        MUX_y = y_btm1;
+                        MUX_color = color_btm1;
+                    end
+
+                    D: begin
+                        gnt_top2  = 1'b1;
+                        MUX_write = write_top2;
+                        MUX_x = x_top2;
+                        MUX_y = y_top2;
+                        MUX_color = color_top2;
+                    end
+
+                    E: begin
+                        gnt_btm2  = 1'b1;
+                        MUX_write = write_btm2;
+                        MUX_x = x_btm2;
+                        MUX_y = y_btm2;
+                        MUX_color = color_btm2;
+                    end
+
+                    F: begin
+                        gnt_top3  = 1'b1;
+                        MUX_write = write_top3;
+                        MUX_x = x_top3;
+                        MUX_y = y_top3;
+                        MUX_color = color_top3;
+                    end
+
+                    G: begin
+                        gnt_btm3  = 1'b1;
+                        MUX_write = write_btm3;
+                        MUX_x = x_btm3;
+                        MUX_y = y_btm3;
+                        MUX_color = color_btm3;
+                    end
+
+                    H: begin
+                        gnt_bird  = 1'b1;
+                        MUX_write = O1_write;
+                        MUX_x = O1_x;
+                        MUX_y = O1_y;
+                        MUX_color = O1_color;
+                    end
+                endcase
+            end
+        end
+
+        // ---------- GAME OVER ----------
+        GS_OVER: begin
+            // Freeze the last frame: don't write new pixels
+            // VRAM keeps whatever was on screen at the moment of collision.
+            MUX_write = 1'b0;
+        	end
+    	endcase
+	end
+
+
+
+	// ---------------- Main arbiter FSM: state registers ----------------
+	always @(posedge CLOCK_50 or negedge Resetn) begin
+    if (!Resetn)
+        y_Q <= A;
+    else if (started)
+        y_Q <= Y_D;     // only advance FSM after KEY[0] has been pressed once
+    else
+        y_Q <= A;       // hold in A before first start
+	end
+
 
 
 	
@@ -437,7 +541,7 @@ assign LEDR[0] = hit1 | hit2 | hit3;
 		.VGA_BLANK_N(VGA_BLANK_N),
 		.VGA_SYNC_N(VGA_SYNC_N),
 		.VGA_CLK(VGA_CLK));
-		// defparam VGA.BACKGROUND_IMAGE = "./MIF/startscreen.mif";
+		defparam VGA.BACKGROUND_IMAGE = "./MIF/glitchybird.mif";
     assign LEDR[9:1] = 9'b0;
 
 endmodule
