@@ -574,9 +574,9 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim,
         case (y_Q)
             A:  Y_D = B;                        // initialize counters, registers
 
-            B:  if (YC != Y_dim-1) Y_D = B;      // initial draw, done once
+            B:  if (XC != XDIM-1) Y_D = B;      // initial draw, done once
                 else Y_D = C;
-            C:  if (XC != XDIM-1) Y_D = B;
+            C:  if (YC != Y_dim-1) Y_D = B;
                 else Y_D = D;
 
             D:  if (!sync) Y_D = D;             // wait for object's delay time
@@ -584,17 +584,17 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim,
             E:  if (!gnt) Y_D = E;              // wait for VGA grant
                 else Y_D = F;
 
-            F:  if (YC != Y_dim-1) Y_D = F;      // erase object
+            F:  if (XC != XDIM-1) Y_D = F;      // erase object
                 else Y_D = G;
-            G:  if (XC != XDIM-1) Y_D = F;
+            G:  if (YC != Y_dim-1) Y_D = F;
                 else Y_D = H;
 
             H:  Y_D = I;                        // move the object
             I:  Y_D = J;
 
-            J:  if (YC != Y_dim-1) Y_D = J;      // draw the object
+            J:  if (XC != XDIM-1) Y_D = J;      // draw the object
                 else Y_D = K;
-            K:  if (XC != XDIM-1) Y_D = J;
+            K:  if (YC != Y_dim-1) Y_D = J;
                 else Y_D = L;
             L:  Y_D = D;
             default: Y_D = A;
@@ -608,15 +608,15 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim,
         case (y_Q)
             A:  begin Lx = 1'b1; Ly = 1'b1; Lxc = 1'b1; Lyc = 1'b1; end // initialization
 
-            B:  begin Eyc = 1'b1; write = 1'b1; end   // color a pixel, incr YC
-            C:  begin Lyc = 1'b1; Eyc = 1'b1; end     // reload YC, incr XC
+            B:  begin Exc = 1'b1; write = 1'b1; end   // color a pixel, incr XC
+            C:  begin Lxc = 1'b1; Eyc = 1'b1; end     // reload XC, incr YC
 
             D:  Lyc = 1'b1; // reload YC
             E:  req = 1'b1; // request a drawing cycle
 
             // erase the object
-            F:  begin req = 1'b1; Eyc = 1'b1; erase = 1'b1; write = 1'b1; end
-            G:  begin req = 1'b1; Lyc = 1'b1; Exc = 1'b1; end
+            F:  begin req = 1'b1; Exc = 1'b1; erase = 1'b1; write = 1'b1; end
+            G:  begin req = 1'b1; Lxc = 1'b1; Eyc = 1'b1; end
 
             H: begin req = 1'b1; Lyc = 1'b1; end
 
@@ -624,8 +624,8 @@ module object (Resetn, Clock, gnt, req, Y_init, Y_dim,
             I:  begin req = 1'b1; Ex = 1'b1; Lx = (X == 'd0); end
 
             // draw the object
-            J:  begin req = 1'b1; Eyc = 1'b1; write = 1'b1; end
-            K:  begin req = 1'b1; Lyc = 1'b1; Exc = 1'b1; end
+            J:  begin req = 1'b1; Exc = 1'b1; write = 1'b1; end
+            K:  begin req = 1'b1; Lxc = 1'b1; Eyc = 1'b1; end
             L:  Lyc = 1'b1; // reload YC, and release the request
         endcase
     end
