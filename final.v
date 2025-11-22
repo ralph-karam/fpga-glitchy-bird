@@ -120,6 +120,35 @@ end
 assign start_press = (key2_prev == 1'b1) && (KEY[2] == 1'b0);
 
 	
+// ---------------- Full-screen clear to SKYBLUE when PLAY starts ------------
+reg clearing_play;
+reg [nX-1:0] clear_x;
+reg [nY-1:0] clear_y;
+
+	// Sweep the whole screen once when clearing_play = 1
+always @(posedge CLOCK_50 or negedge Resetn) begin
+    if (!Resetn) begin
+        clearing_play <= 1'b0;
+        clear_x       <= {nX{1'b0}};
+        clear_y       <= {nY{1'b0}};
+    end
+    else if (clearing_play) begin
+        // x: 0..XSCREEN-1, y: 0..YSCREEN-1
+        if (clear_x == XSCREEN-1) begin
+            clear_x <= {nX{1'b0}};
+            if (clear_y == YSCREEN-1) begin
+                clear_y       <= {nY{1'b0}};
+                clearing_play <= 1'b0;   // done clearing
+            end
+            else begin
+                clear_y <= clear_y + 1'b1;
+            end
+        end
+        else begin
+            clear_x <= clear_x + 1'b1;
+        end
+    end
+end
 
 	
 	//--------------------------random-----------------------------
@@ -236,22 +265,32 @@ end
 // --------- Game state transitions ----------------------------
 always @(posedge CLOCK_50 or negedge Resetn) begin
     if (!Resetn) begin
-        game_state <= GS_START;
+        game_state    <= GS_START;
+        // also reset play-clear control
+        clearing_play <= 1'b0;
+        clear_x       <= {nX{1'b0}};
+        clear_y       <= {nY{1'b0}};
     end else begin
         case (game_state)
             GS_START: begin
-                if (start_press)
-                    game_state <= GS_PLAY;          // start game
+                if (start_press) begin
+                    game_state    <= GS_PLAY;   // start game
+                    // start full-screen blue clear
+                    clearing_play <= 1'b1;
+                    clear_x       <= {nX{1'b0}};
+                    clear_y       <= {nY{1'b0}};
+                end
             end
 
             GS_PLAY: begin
-                if (hit1 | hit2 | hit3)            // any collision
-                    game_state <= GS_OVER;         // go to end screen (freeze)
+                if (hit1 | hit2 | hit3)
+                    game_state <= GS_OVER;
+                // clearing_play is turned off by the clear FSM above
             end
 
             GS_OVER: begin
                 if (start_press)
-                    game_state <= GS_START;        // back to start screen
+                    game_state <= GS_START;
             end
 
             default: game_state <= GS_START;
@@ -311,17 +350,24 @@ always @(*) begin
 
         // ---------- PLAYING ----------
         GS_PLAY: begin
-            // If KEY[0] was never pressed yet, don't draw anything
-            if (!started) begin
-                MUX_write = 1'b0;
-            end
-            // clear "ghost" strip on the left when any pillar wraps
-            else if (clear_left) begin
-                MUX_x = clear_x_left;
-                MUX_y = clear_y_left;
-                MUX_color = SKYBLUE;
-                MUX_write = 1'b1;
-            end
+    // If KEY[0] was never pressed yet, don't draw anything
+    if (!started) begin
+        MUX_write = 1'b0;
+    end
+    // First: on transition from START -> PLAY, clear entire screen to SKYBLUE
+    else if (clearing_play) begin
+        MUX_x     = clear_x;
+        MUX_y     = clear_y;
+        MUX_color = SKYBLUE;
+        MUX_write = 1'b1;
+    end
+    // Second: normal left-strip ghost cleanup when pillars wrap
+    else if (clear_left) begin
+        MUX_x     = clear_x_left;
+        MUX_y     = clear_y_left;
+        MUX_color = SKYBLUE;
+        MUX_write = 1'b1;
+    end
             else begin
                 case (y_Q)
                     A: ; // nothing this cycle
