@@ -1,7 +1,7 @@
 `default_nettype none
 
 module obstacles(CLOCK_50, SW, KEY, LEDR, PS2_CLK, PS2_DAT, VGA_R, VGA_G, VGA_B,
-				VGA_HS, VGA_VS, VGA_BLANK_N, VGA_SYNC_N, VGA_CLK);
+				VGA_HS, VGA_VS, VGA_BLANK_N, VGA_SYNC_N, VGA_CLK, HEX0, HEX1);
 	parameter nX = 10;
 	parameter nY = 9;
 	
@@ -30,7 +30,12 @@ reg  key2_prev = 1'b1;   // keys are active-low
 wire start_press;
 
 
+	wire [3:0] score1, score2; 
+	wire score_enable;
 	
+	score_counter (CLOCK_50, score1, score2, score_enable, Resetn, KEY[2]);
+	 hex7seg H0 (score1, HEX0);
+    hex7seg H1 (score2, HEX1);
 
 	
 	inout wire PS2_CLK, PS2_DAT;
@@ -72,6 +77,7 @@ wire start_press;
 	output wire VGA_BLANK_N;
 	output wire VGA_SYNC_N;
 	output wire VGA_CLK;	
+	output wire [6:0] HEX0, HEX1;
 
 	wire [9:0] x_top1, x_btm1, x_top2, x_btm2, x_top3, x_btm3;
 	wire [8:0] y_top1, y_btm1, y_top2, y_btm2, y_top3, y_btm3;
@@ -119,33 +125,40 @@ end
 
 assign start_press = (key2_prev == 1'b1) && (KEY[2] == 1'b0);
 
-	
-// ---------------- Full-screen clear to SKYBLUE when PLAY starts ------------
-reg clearing_play;
-reg [nX-1:0] clear_x;
-reg [nY-1:0] clear_y;
+	reg clearing_play;
+	reg [nX-1:0] clear_x;
+	reg [nY-1:0] clear_y;
 
-	// Sweep the whole screen once when clearing_play = 1
+	
+// Sweep the whole screen once when we enter PLAY (KEY2 pressed)
 always @(posedge CLOCK_50 or negedge Resetn) begin
     if (!Resetn) begin
         clearing_play <= 1'b0;
         clear_x       <= {nX{1'b0}};
         clear_y       <= {nY{1'b0}};
     end
-    else if (clearing_play) begin
-        // x: 0..XSCREEN-1, y: 0..YSCREEN-1
-        if (clear_x == XSCREEN-1) begin
-            clear_x <= {nX{1'b0}};
-            if (clear_y == YSCREEN-1) begin
-                clear_y       <= {nY{1'b0}};
-                clearing_play <= 1'b0;   // done clearing
+    else begin
+        // Start a full-screen clear when KEY2 is pressed in GS_START
+        if (start_press && (game_state == GS_START)) begin
+            clearing_play <= 1'b1;
+            clear_x       <= {nX{1'b0}};
+            clear_y       <= {nY{1'b0}};
+        end
+        else if (clearing_play) begin
+            // x = 0 .. XSCREEN-1, y = 0 .. YSCREEN-1
+            if (clear_x == XSCREEN-1) begin
+                clear_x <= {nX{1'b0}};
+                if (clear_y == YSCREEN-1) begin
+                    clear_y       <= {nY{1'b0}};
+                    clearing_play <= 1'b0;  // done clearing
+                end
+                else begin
+                    clear_y <= clear_y + 1'b1;
+                end
             end
             else begin
-                clear_y <= clear_y + 1'b1;
+                clear_x <= clear_x + 1'b1;
             end
-        end
-        else begin
-            clear_x <= clear_x + 1'b1;
         end
     end
 end
@@ -266,21 +279,13 @@ end
 always @(posedge CLOCK_50 or negedge Resetn) begin
     if (!Resetn) begin
         game_state    <= GS_START;
-        // also reset play-clear control
-        clearing_play <= 1'b0;
-        clear_x       <= {nX{1'b0}};
-        clear_y       <= {nY{1'b0}};
     end else begin
         case (game_state)
             GS_START: begin
                 if (start_press) begin
                     game_state    <= GS_PLAY;   // start game
-                    // start full-screen blue clear
-                    clearing_play <= 1'b1;
-                    clear_x       <= {nX{1'b0}};
-                    clear_y       <= {nY{1'b0}};
-                end
-            end
+                 end
+				end
 
             GS_PLAY: begin
                 if (hit1 | hit2 | hit3)
@@ -570,6 +575,8 @@ collision col3 (
 
 // example debug: light LEDR[0] if any collision
 assign LEDR[0] = hit1 | hit2 | hit3;
+
+assign score_enable = Resetn & KEY[2] & ~(hit1 | hit2 | hit3);
 
     // connect to VGA controller
     vga_adapter VGA (
@@ -868,6 +875,76 @@ module half_second_counter (CLOCK_50, half_second_enable, Resetn);
              end
 endmodule
 
+module score_counter (CLOCK_50, score1, score2, enable, Resetn, key2);
+    input CLOCK_50, Resetn, enable, key2;
+    output reg [3:0] score1, score2;
+
+    reg [26:0] count;
+
+    always @ (posedge CLOCK_50)
+        if (!Resetn | !key2)
+            begin
+                count <= 27'd0;
+                score1 <= 4'd0;
+					 score2 <= 4'd0;
+            end
+        else if (enable)
+             begin
+                 count <= count + 1;
+                 if (count == 27'd49999999) 
+					      begin
+                     score1 <= score1 + 1;
+							count <= 27'd0;
+					      if (score1 == 4'd9) 
+					          begin
+							    score2 <= score2 + 1;
+							    score1 <= 4'd0;
+						       if (score2 == 4'd9)
+						           score2 <= 4'd0;
+								 end
+							 
+					      end
+             end
+endmodule
+
+module hex7seg (hex, display);
+    input wire [3:0] hex;
+    output reg [6:0] display;
+
+    /*
+     *       0  
+     *      ---  
+     *     |   |
+     *    5|   |1
+     *     | 6 |
+     *      ---  
+     *     |   |
+     *    4|   |2
+     *     |   |
+     *      ---  
+     *       3  
+     */
+    always @ (hex)
+        case (hex)
+            4'h0: display = 7'b1000000;
+            4'h1: display = 7'b1111001;
+            4'h2: display = 7'b0100100;
+            4'h3: display = 7'b0110000;
+            4'h4: display = 7'b0011001;
+            4'h5: display = 7'b0010010;
+            4'h6: display = 7'b0000010;
+            4'h7: display = 7'b1111000;
+            4'h8: display = 7'b0000000;
+            4'h9: display = 7'b0011000;
+            4'hA: display = 7'b0001000;
+            4'hB: display = 7'b0000011;
+            4'hC: display = 7'b1000110;
+            4'hD: display = 7'b0100001;
+            4'hE: display = 7'b0000110;
+            4'hF: display = 7'b0001110;
+        endcase
+endmodule
+
 module object_mem (address, clock, q);
     parameter n = 3;    // memory width
     parameter Mn = 6;   // address bits
@@ -937,7 +1014,7 @@ module player (Resetn, Clock, go, ps2_rec, dir, VGA_x, VGA_y, VGA_color, VGA_wri
     parameter BOX_SIZE_X = 1 << xOBJ;
     parameter BOX_SIZE_Y = 1 << yOBJ;
     parameter Mn = xOBJ + yOBJ; // address lines needed for the object memory
-    parameter INIT_FILE = "./MIF/bird_32_32_9.mif";
+    parameter INIT_FILE = "./MIF/bmp_32_9.mif";
 
     // state names for the FSM that draws the object
     parameter A = 3'b000, B = 3'b001, C = 3'b010, D = 3'b011, E = 3'b100,
