@@ -40,10 +40,10 @@ wire start_press;
 	
 	inout wire PS2_CLK, PS2_DAT;
 	
-		 reg prev_ps2_clk;               // ps2_clk value in the previous clock cycle
+	reg prev_ps2_clk;               // ps2_clk value in the previous clock cycle
     wire negedge_ps2_clk;           // used for PS2 keyboard signals
-	 wire req_bird;
-	 reg gnt_bird;
+	wire req_bird;
+	reg gnt_bird;
    
     reg [32:0] Serial;              // each PS2 serial data packet has 11 bits:
                                     // STOP (1) PARITY d7 d6 d5 d4 d3 d2 d1 d0 START (0)
@@ -305,8 +305,6 @@ end
 
 
 	//----------------------------Main FSM------------------------
-	
-	// ---------------- Main arbiter FSM: next-state logic ----------------
 	always @(*) begin
 	 Y_D = A;
     case (y_Q)
