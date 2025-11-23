@@ -594,7 +594,7 @@ assign score_enable = Resetn & KEY[2] & ~(hit1 | hit2 | hit3);
 		.VGA_BLANK_N(VGA_BLANK_N),
 		.VGA_SYNC_N(VGA_SYNC_N),
 		.VGA_CLK(VGA_CLK));
-		defparam VGA.BACKGROUND_IMAGE = "./MIF/glitchybird.mif";
+		defparam VGA.BACKGROUND_IMAGE = "./MIF/finalbird.mif";
     assign LEDR[9:1] = 9'b0;
 
 endmodule
