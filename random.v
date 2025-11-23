@@ -31,3 +31,33 @@ always @(posedge CLOCK_50 or negedge Resetn) begin
         end
     end
 end
+module score_counter (CLOCK_50, score1, score2, enable, Resetn);
+    input CLOCK_50, Resetn, enable;
+    output reg [3:0] score1, score2;
+
+    reg [26:0] count;
+
+    always @ (posedge CLOCK_50)
+        if (!Resetn)
+            begin
+                count <= 26'd0;
+                score1 <= 4'd0;
+					 score1 <= 4'd0;
+            end
+        else if (enable)
+             begin
+                 count <= count + 1;
+                 if (count == 26'd0) 
+					      begin
+                     score1 <= score1 + 1;
+					      if (score1 == 4'd9) 
+					          begin
+							    score2 <= score2 + 1;
+							    score1 <= 4'd0;
+						       if (score2 == 4'd9)
+						           score2 <= 4'd0;
+								 end
+							 
+					      end
+             end
+endmodule
