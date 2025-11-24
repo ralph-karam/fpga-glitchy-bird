@@ -12,11 +12,9 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, PS2_CLK, PS2_DAT, VGA_R, VGA_G, VGA_B,
     parameter A = 3'b000, B = 3'b001, C = 3'b010, D = 3'b011, E = 3'b100, F = 3'b101, G = 3'b110, H = 3'b111;
 	parameter XSCREEN = 640;
 
-
-	// -------- Game state machine for start / play / game over --------
-	localparam GS_START = 2'd0;
-	localparam GS_PLAY  = 2'd1;
-	localparam GS_OVER  = 2'd2;
+	parameter GS_START = 2'd0;
+	parameter GS_PLAY  = 2'd1;
+	parameter GS_OVER  = 2'd2;
 
 	reg [1:0] game_state = GS_START;  // power-up in START
 
@@ -105,50 +103,50 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, PS2_CLK, PS2_DAT, VGA_R, VGA_G, VGA_B,
 	assign Resetn = KEY[0];
 
 	// Detect first KEY[0] press/release to mark "game has been started at least once"
-always @(posedge CLOCK_50) begin
-    resetn_prev <= Resetn;
-
+	always @(posedge CLOCK_50) begin
+    	resetn_prev <= Resetn;
     // detect low->high transition on Resetn (KEY[0] released after being pressed)
     if (!resetn_prev && Resetn)
         started <= 1'b1;
-end
+	end
 
-// KEY[2] falling edge (active-low press)
-always @(posedge CLOCK_50 or negedge Resetn) begin
-    if (!Resetn) begin
-        key2_prev <= 1'b1;
-    end else begin
-        key2_prev <= KEY[2];
-    end
-end
+	// KEY[2] falling edge (active-low press)
+	always @(posedge CLOCK_50 or negedge Resetn) begin
+    	if (!Resetn) begin
+        	key2_prev <= 1'b1;
+    	end else begin
+       		key2_prev <= KEY[2];
+    	end
+	end
 
-assign start_press = (key2_prev == 1'b1) && (KEY[2] == 1'b0);
+	
+	assign start_press = (key2_prev == 1'b1) && (KEY[2] == 1'b0);
 
 	reg clearing_play;
 	reg [nX-1:0] clear_x;
 	reg [nY-1:0] clear_y;
 
 	
-// Sweep the whole screen once when we enter PLAY (KEY2 pressed)
-always @(posedge CLOCK_50 or negedge Resetn) begin
-    if (!Resetn) begin
-        clearing_play <= 1'b0;
-        clear_x       <= {nX{1'b0}};
-        clear_y       <= {nY{1'b0}};
+	// Sweep the whole screen once when we enter PLAY (KEY2 pressed)
+	always @(posedge CLOCK_50 or negedge Resetn) begin
+    	if (!Resetn) begin
+        	clearing_play <= 1'b0;
+        	clear_x <= {nX{1'b0}};
+        	clear_y <= {nY{1'b0}};
     end
     else begin
         // Start a full-screen clear when KEY2 is pressed in GS_START
         if (start_press && (game_state == GS_START)) begin
             clearing_play <= 1'b1;
-            clear_x       <= {nX{1'b0}};
-            clear_y       <= {nY{1'b0}};
+            clear_x <= {nX{1'b0}};
+            clear_y <= {nY{1'b0}};
         end
         else if (clearing_play) begin
-            // x = 0 .. XSCREEN-1, y = 0 .. YSCREEN-1
+            // x = 0 to XSCREEN-1, y = 0 to YSCREEN-1
             if (clear_x == XSCREEN-1) begin
                 clear_x <= {nX{1'b0}};
                 if (clear_y == YSCREEN-1) begin
-                    clear_y       <= {nY{1'b0}};
+                    clear_y <= {nY{1'b0}};
                     clearing_play <= 1'b0;  // done clearing
                 end
                 else begin
@@ -157,13 +155,13 @@ always @(posedge CLOCK_50 or negedge Resetn) begin
             end
             else begin
                 clear_x <= clear_x + 1'b1;
-            end
-        end
-    end
-end
+            	end
+        	end
+    	end
+	end
 
 	
-	//--------------------------random-----------------------------
+	//--------------------------random for pillars -----------------------------
 	
 	parameter [8:0] GAP = 9'd80;
 	parameter [8:0] YSCREEN = 9'd480;
@@ -177,10 +175,10 @@ end
 	wire [8:0] rand_mod = rnd % RANGE_H; 	//0 to 200
 	wire [8:0] rand_h = MIN_H + rand_mod;	//100 to 300
 	
-	// AFTER – add initial values
+	// initial values
 	reg [8:0] top_h1 = 9'd200;
 	reg [8:0] btm_h1 = (9'd480 - 9'd80) - 9'd200;  // (YSCREEN - GAP) - top_h1
-	reg [8:0] btm_y1 = 9'd200 + 9'd80;            // top_h1 + GAP
+	reg [8:0] btm_y1 = 9'd200 + 9'd80; // top_h1 + GAP
 
 	reg [8:0] top_h2 = 9'd150;
 	reg [8:0] btm_h2 = (9'd480 - 9'd80) - 9'd150;
@@ -191,7 +189,7 @@ end
 	reg [8:0] btm_y3 = 9'd220 + 9'd80;
 	
 	wire wrap_top1, wrap_top2, wrap_top3;
-	wire wrap_btm1, wrap_btm2, wrap_btm3;		//unused, here to avoid floating ports
+	wire wrap_btm1, wrap_btm2, wrap_btm3;
 	
 	wire any_wrap = wrap_top1 | wrap_top2 | wrap_top3 | wrap_btm1 | wrap_btm2 | wrap_btm3;
 	
@@ -234,52 +232,52 @@ end
         end
     end
 	
-	//----------------------To fix aesthetic of left "ghosts"-------------------
+	//----------------------for left side aesthetic-------------------
 
-	localparam [nX-1:0] PILLAR_WIDTH = 10'd60;
+	parameter [nX-1:0] PILLAR_WIDTH = 10'd60;
 
-reg clear_left;
-reg [nX-1:0] clear_x_left;
-reg [nY-1:0] clear_y_left;
+	reg clear_left;
+	reg [nX-1:0] clear_x_left;
+	reg [nY-1:0] clear_y_left;
 
-// when any pillar wraps, clear a left strip (width = PILLAR_WIDTH) to black once
-always @(posedge CLOCK_50 or negedge Resetn) begin
-    if (!Resetn) begin
-        clear_left   <= 1'b0;
-        clear_x_left <= {nX{1'b0}};
-        clear_y_left <= {nY{1'b0}};
-    end
-    else if (!clear_left && any_wrap) begin
-        // start clearing on first wrap pulse
-        clear_left   <= 1'b1;
-        clear_x_left <= {nX{1'b0}};  // x = 0
-        clear_y_left <= {nY{1'b0}};  // y = 0
-    end
-    else if (clear_left) begin
-        // sweep a rectangle: x = 0..PILLAR_WIDTH-1, y = 0..YSCREEN-1
-        if (clear_x_left == PILLAR_WIDTH-1) begin
-            clear_x_left <= {nX{1'b0}};  // restart x at 0
-            if (clear_y_left == YSCREEN-1) begin
-                // done, whole strip cleared
-                clear_left   <= 1'b0;
-                clear_y_left <= {nY{1'b0}};
+	// when any pillar wraps, clear a left strip (width = PILLAR_WIDTH) to black once
+	always @(posedge CLOCK_50 or negedge Resetn) begin
+    	if (!Resetn) begin
+        	clear_left   <= 1'b0;
+        	clear_x_left <= {nX{1'b0}};
+        	clear_y_left <= {nY{1'b0}};
+    	end
+    	else if (!clear_left && any_wrap) begin
+        	// start clearing on first wrap pulse
+        	clear_left   <= 1'b1;
+        	clear_x_left <= {nX{1'b0}};  // x = 0
+        	clear_y_left <= {nY{1'b0}};  // y = 0
+    	end
+    	else if (clear_left) begin
+        	// sweep a rectangle: x = 0 to PILLAR_WIDTH-1, y = 0 to YSCREEN-1
+        	if (clear_x_left == PILLAR_WIDTH-1) begin
+            	clear_x_left <= {nX{1'b0}};  // restart x at 0
+            		if (clear_y_left == YSCREEN-1) begin
+						// done, whole strip cleared
+                		clear_left <= 1'b0;
+                		clear_y_left <= {nY{1'b0}};
             end
             else begin
                 clear_y_left <= clear_y_left + 1'b1;
-            end
-        end
-        else begin
-            clear_x_left <= clear_x_left + 1'b1;
-        end
-    end
-end
+            	end
+        	end
+        	else begin
+            	clear_x_left <= clear_x_left + 1'b1;
+        	end
+    	end
+	end
 	
-// --------- Game State FSM ----------------------------
-always @(posedge CLOCK_50 or negedge Resetn) begin
-    if (!Resetn) begin
-        game_state    <= GS_START;
-    end else begin
-        case (game_state)
+	// --------- Game State FSM ----------------------------
+	always @(posedge CLOCK_50 or negedge Resetn) begin
+    	if (!Resetn) begin
+        	game_state    <= GS_START;
+    	end else begin
+        	case (game_state)
             GS_START: begin
                 if (start_press) begin
                     game_state    <= GS_PLAY;   // start game
@@ -299,8 +297,8 @@ always @(posedge CLOCK_50 or negedge Resetn) begin
 
             default: game_state <= GS_START;
         endcase
-    end
-end
+    	end
+	end
 
 
 	//--------------------------- Main FSM------------------------
@@ -330,18 +328,18 @@ end
 
 
 
-// ---------------- VGA MUX + grants, with game_state & clear_left ----------------
-always @(*) begin
-    // default assignments
-    gnt_top1 = 1'b0; gnt_btm1 = 1'b0;
-    gnt_top2 = 1'b0; gnt_btm2 = 1'b0;
-    gnt_top3 = 1'b0; gnt_btm3 = 1'b0;
-    gnt_bird = 1'b0;
+	// ---------------- VGA MUX + grants, with game_state & clear_left ----------------
+	always @(*) begin
+    	// default assignments
+    	gnt_top1 = 1'b0; gnt_btm1 = 1'b0;
+    	gnt_top2 = 1'b0; gnt_btm2 = 1'b0;
+    	gnt_top3 = 1'b0; gnt_btm3 = 1'b0;
+    	gnt_bird = 1'b0;
 
-    MUX_x     = 10'd0;
-    MUX_y     = 9'd0;
-    MUX_color = SKYBLUE;
-    MUX_write = 1'b0;
+    	MUX_x     = 10'd0;
+    	MUX_y     = 9'd0;
+    	MUX_color = SKYBLUE;
+    	MUX_write = 1'b0;
 
     case (game_state)
         // ---------- START SCREEN ----------
@@ -444,19 +442,18 @@ always @(*) begin
 
 
 
-	// ---------------- Main arbiter FSM: state registers ----------------
 	always @(posedge CLOCK_50 or negedge Resetn) begin
     if (!Resetn)
         y_Q <= A;
     else if (started)
-        y_Q <= Y_D;     // only advance FSM after KEY[0] has been pressed once
+        y_Q <= Y_D; // only advance FSM after KEY[0] has been pressed once
     else
-        y_Q <= A;       // hold in A before first start
+        y_Q <= A;  // hold in A before first start
 	end
 
 
 
-	
+	//object declarations 
 	object top1 (Resetn, CLOCK_50, gnt_top1, req_top1,
              9'd0, top_h1,              // Y_init, Y_dim
              x_top1, y_top1, color_top1, write_top1,
@@ -499,12 +496,9 @@ always @(*) begin
     defparam btm3.COLOR  = PILLARGREEN;
 	 
 	 
-	 //------------------------------------Bird------------------
+	 //------------------------------------Bird/Player-----------------------------
 	 
-
-
     sync S1 (~KEY[1], Resetn, CLOCK_50, KEY1);
-
     sync S3 (PS2_CLK, Resetn, CLOCK_50, PS2_CLK_S);
     sync S4 (PS2_DAT, Resetn, CLOCK_50, PS2_DAT_S);
 
@@ -529,8 +523,8 @@ always @(*) begin
     // scancode[4] == 1 for a/s/w/z and 0 for d/f/r/c
     assign O1_dir = (Serial[19:12] == 8'h1D) ? 2'b01: 2'b10; // 'W' pressed
 
-// instantiate bird
-player bird(Resetn, CLOCK_50, KEY1, 1'b1, O1_dir, O1_x, O1_y, 
+	// instantiate bird
+	player bird(Resetn, CLOCK_50, KEY1, 1'b1, O1_dir, O1_x, O1_y, 
                O1_color, O1_write, O1_done, gnt_bird, req_bird, player_x, player_y);
         defparam bird.LEFT  = 2'b00;  // 'a'
         defparam bird.RIGHT = 2'b11;  // 's'
@@ -539,42 +533,44 @@ player bird(Resetn, CLOCK_50, KEY1, 1'b1, O1_dir, O1_x, O1_y,
 		  
 		  
 		  
-//-------------------------------Collision------------------------------
+	//-------------------------------Collision Detection------------------------------
 		  
-wire hit1, hit2, hit3;
+	wire hit1, hit2, hit3;
 
-collision col1 (
+	collision col1 (
     .player_x (player_x),
     .player_y (player_y),
     .pillar_x (pillar1_x),
     .top_h    (top_h1),
     .btm_y    (btm_y1),
     .hit      (hit1)
-);
+	);
 
-collision col2 (
+	collision col2 (
     .player_x (player_x),
     .player_y (player_y),
     .pillar_x (pillar2_x),
     .top_h    (top_h2),
     .btm_y    (btm_y2),
     .hit      (hit2)
-);
+	);
 
-collision col3 (
+	collision col3 (
     .player_x (player_x),
     .player_y (player_y),
     .pillar_x (pillar3_x),
     .top_h    (top_h3),
     .btm_y    (btm_y3),
     .hit      (hit3)
-);
+	);
 
-// example debug: light LEDR[0] if any collision
-assign LEDR[0] = hit1 | hit2 | hit3;
+	// light LEDR[0] if any collision
+	assign LEDR[0] = hit1 | hit2 | hit3;
 
-assign score_enable = Resetn & KEY[2] & ~(hit1 | hit2 | hit3);
+	assign score_enable = Resetn & KEY[2] & ~(hit1 | hit2 | hit3);
 
+
+	
     // connect to VGA controller
     vga_adapter VGA (
 		.resetn(KEY[0]),
@@ -628,6 +624,7 @@ module Up_count (Clock, Resetn, Q);
             Q <= Q + 1'b1;
 endmodule
 
+//LFSR 8-bit
 module random #(parameter seedInitial = 8'd67) (reset, Clock, seed);
     input reset;
     input Clock;
@@ -846,6 +843,7 @@ module upDn_count (R, Clock, Resetn, L, E, Dir, Q);
             else
                 Q <= Q - {{n-1{1'b0}},1'b1};
 endmodule
+
 
 module half_second_counter (CLOCK_50, half_second_enable, Resetn);
     input CLOCK_50, Resetn;
@@ -1150,17 +1148,8 @@ output wire [nY-1:0] bird_y;
 
 endmodule
 
-// Bird vs one pillar pair (top + bottom)
-module collision
-#(
-    parameter nX        = 10,
-    parameter nY        = 9,
-    parameter BIRD_W    = 32,      // bird width  in pixels
-    parameter BIRD_H    = 32,      // bird height in pixels
-    parameter PILLAR_W  = 50,      // pillar width (must match XDIM)
-    parameter [nY-1:0] SCREEN_H = 9'd480  // screen height
-)
-(
+// Bird vs one pillar pair
+module collision(
     input  wire [nX-1:0] player_x,   // bird top-left X
     input  wire [nY-1:0] player_y,   // bird top-left Y
 
@@ -1171,7 +1160,14 @@ module collision
     output wire          hit         // 1 = collision
 );
 
-    // bird rectangle (top-left + size)
+    parameter nX = 10;
+    parameter nY = 9;
+    parameter BIRD_W = 32;
+    parameter BIRD_H = 32;
+    parameter PILLAR_W  = 50;
+	parameter [nY-1:0] SCREEN_H = 9'd480;
+
+    // bird rectangle
     wire [nX-1:0] player_right  = player_x + BIRD_W - 1'b1;
     wire [nY-1:0] player_bottom = player_y + BIRD_H - 1'b1;
 
@@ -1181,18 +1177,18 @@ module collision
     // horizontal overlap with pillar strip
     wire overlap_x = (player_right >= pillar_x) && (player_x <= pillar_right);
 
-    // gap is [top_h .. btm_y-1]
-    // SAFE region: bird strictly inside gap, not touching edges
+
+    // bird strictly inside gap, not touching edges
     wire inside_gap_top_ok    = (player_y      >  top_h);
     wire inside_gap_bottom_ok = (player_bottom <  btm_y);
     wire inside_gap           = inside_gap_top_ok && inside_gap_bottom_ok;
 
-    // collision with pillars: overlapping in X and NOT safely inside the gap
+    // collision with pillars, overlapping in X and NOT safely inside the gap
     wire hit_pillars = overlap_x && ~inside_gap;
 
-    // --- NEW: collision with screen top/bottom ---
-    wire hit_top_screen    = (player_y == {nY{1'b0}});           // touch y=0
-    wire hit_bottom_screen = (player_bottom >= SCREEN_H - 1'b1); // touch bottom
+    //collision with screen top/bottom
+    wire hit_top_screen    = (player_y == {nY{1'b0}}); 
+    wire hit_bottom_screen = (player_bottom >= SCREEN_H - 1'b1);
 
     assign hit = hit_pillars || hit_top_screen || hit_bottom_screen;
 
