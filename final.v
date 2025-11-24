@@ -9,32 +9,31 @@ module obstacles(CLOCK_50, SW, KEY, LEDR, PS2_CLK, PS2_DAT, VGA_R, VGA_G, VGA_B,
 	parameter PILLARGREEN = 9'b001_111_001;
 	
     // state codes for FSM that choses which object to draw at a given time
-   parameter A = 3'b000, B = 3'b001, C = 3'b010, D = 3'b011, E = 3'b100, F = 3'b101, G = 3'b110, H = 3'b111;
+    parameter A = 3'b000, B = 3'b001, C = 3'b010, D = 3'b011, E = 3'b100, F = 3'b101, G = 3'b110, H = 3'b111;
 	parameter XSCREEN = 640;
 
 
-	
-// -------- Game state machine for start / play / over --------
-localparam GS_START = 2'd0;
-localparam GS_PLAY  = 2'd1;
-localparam GS_OVER  = 2'd2;
+	// -------- Game state machine for start / play / game over --------
+	localparam GS_START = 2'd0;
+	localparam GS_PLAY  = 2'd1;
+	localparam GS_OVER  = 2'd2;
 
-reg [1:0] game_state = GS_START;  // power-up in START
+	reg [1:0] game_state = GS_START;  // power-up in START
 
-// track if KEY[0] has ever been pressed + released
-reg started = 1'b0;
-reg resetn_prev;
+	// track if KEY[0] has ever been pressed + released
+	reg started = 1'b0;
+	reg resetn_prev;
 
-// KEY[2] edge detector (start / restart button)
-reg  key2_prev = 1'b1;   // keys are active-low
-wire start_press;
+	// KEY[2] edge detector (start / restart button)
+	reg  key2_prev = 1'b1;   // keys are active-low
+	wire start_press;
 
 
 	wire [3:0] score1, score2; 
 	wire score_enable;
 	
 	score_counter (CLOCK_50, score1, score2, score_enable, Resetn, KEY[2]);
-	 hex7seg H0 (score1, HEX0);
+	hex7seg H0 (score1, HEX0);
     hex7seg H1 (score2, HEX1);
 
 	
@@ -275,7 +274,7 @@ always @(posedge CLOCK_50 or negedge Resetn) begin
     end
 end
 	
-// --------- Game state transitions ----------------------------
+// --------- Game State FSM ----------------------------
 always @(posedge CLOCK_50 or negedge Resetn) begin
     if (!Resetn) begin
         game_state    <= GS_START;
@@ -304,7 +303,7 @@ always @(posedge CLOCK_50 or negedge Resetn) begin
 end
 
 
-	//----------------------------Main FSM------------------------
+	//--------------------------- Main FSM------------------------
 	always @(*) begin
 	 Y_D = A;
     case (y_Q)
